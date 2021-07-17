@@ -3,4 +3,3 @@ O objetivo deste trabalho é desenvolver uma aplicação de software multithread
 
 - Dados do processo de fabricação de celulose;
 - Apresentar as previsões de falhas operacionais geradas pelo PIMS.
-- 
