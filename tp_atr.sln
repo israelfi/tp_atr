@@ -5,6 +5,11 @@ VisualStudioVersion = 16.0.31229.75
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tp_atr", "tp_atr\tp_atr.vcxproj", "{9A601618-0EC5-4CFE-8509-8E1C46F35F25}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{4019AD58-4103-4BD3-BD42-A0631982A63A}"
+	ProjectSection(SolutionItems) = preProject
+		sdcd.cpp = sdcd.cpp
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
