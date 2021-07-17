@@ -398,3 +398,4 @@ FodyWeavers.xsd
 # End of https://www.toptal.com/developers/gitignore/api/visualstudio
 .vs/tp_atr/v16/.suo
 .vs/tp_atr/v16/Browse.VC.db
+*.db
