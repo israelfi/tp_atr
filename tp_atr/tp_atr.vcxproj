@@ -139,7 +139,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="alarm_capture.cpp" />
+    <ClCompile Include="data_capture.cpp" />
+    <ClCompile Include="read_pims.cpp" />
+    <ClCompile Include="show_data.cpp" />
     <ClCompile Include="tp_atr.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="tp_atr.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
