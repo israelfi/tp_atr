@@ -2,11 +2,61 @@
 //
 
 #include <iostream>
+#include <windows.h>
+#include <stdio.h>
+#include <tchar.h>
+#include <string>
+#include <direct.h>
+#include "tp_atr.h"
+using namespace std;
+
+int crateProcessOnNewWindow(STARTUPINFO* startupInfo, PROCESS_INFORMATION* processInfo,LPCWSTR filePath) {
+    if (!CreateProcess(filePath,   // No module name (use command line)
+        NULL,        // Command line
+        NULL,           // Process handle not inheritable
+        NULL,           // Thread handle not inheritable
+        FALSE,          // Set handle inheritance to FALSE
+        CREATE_NEW_CONSOLE,              // No creation flags
+        NULL,           // Use parent's environment block
+        L"..\\Debug",           // Use parent's starting directory 
+        startupInfo,            // Pointer to STARTUPINFO structure
+        processInfo)           // Pointer to PROCESS_INFORMATION structure
+        )
+    {
+        printf("CreateProcess failed (%d).\n", GetLastError());
+        return -1;
+    }
+    return 0;
+}
 
 int main()
 {
-    // std::cout << "Hello World!\n";
-    printf("Hello, World!\n");
+    STARTUPINFO alarmStartupInfo;
+    STARTUPINFO dataStartupInfo;
+    PROCESS_INFORMATION alarmProcessInfo;
+    PROCESS_INFORMATION dataProcessInfo;
+
+    ZeroMemory(&alarmStartupInfo, sizeof(alarmStartupInfo));
+    alarmStartupInfo.cb = sizeof(alarmStartupInfo);
+    ZeroMemory(&alarmProcessInfo, sizeof(alarmProcessInfo));
+
+    ZeroMemory(&dataStartupInfo, sizeof(dataStartupInfo));
+    dataStartupInfo.cb = sizeof(dataStartupInfo);
+    ZeroMemory(&dataProcessInfo, sizeof(dataProcessInfo));
+
+    crateProcessOnNewWindow(&alarmStartupInfo, &alarmProcessInfo, L"..\\Debug\\show_alarm.exe");
+    crateProcessOnNewWindow(&dataStartupInfo, &dataProcessInfo, L"..\\Debug\\show_data.exe");
+
+    // Wait until child process exits.
+    WaitForSingleObject(alarmProcessInfo.hProcess, INFINITE);
+    WaitForSingleObject(dataProcessInfo.hProcess, INFINITE);
+
+    // Close process and thread handles. 
+    CloseHandle(alarmProcessInfo.hProcess);
+    CloseHandle(dataProcessInfo.hProcess);
+    CloseHandle(alarmProcessInfo.hThread);
+    CloseHandle(dataProcessInfo.hThread);
+    return 0;
 }
 
 // Executar programa: Ctrl + F5 ou Menu Depurar > Iniciar Sem Depuração
