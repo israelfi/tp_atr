@@ -10,7 +10,7 @@
 #include "tp_atr.h"
 using namespace std;
 
-int crateProcessOnNewWindow(STARTUPINFO* startupInfo, PROCESS_INFORMATION* processInfo,LPCWSTR filePath) {
+int crateProcessOnNewWindow(STARTUPINFO* startupInfo, PROCESS_INFORMATION* processInfo,LPCSTR filePath) {
     if (!CreateProcess(filePath,   // No module name (use command line)
         NULL,        // Command line
         NULL,           // Process handle not inheritable
@@ -18,7 +18,7 @@ int crateProcessOnNewWindow(STARTUPINFO* startupInfo, PROCESS_INFORMATION* proce
         FALSE,          // Set handle inheritance to FALSE
         CREATE_NEW_CONSOLE,              // No creation flags
         NULL,           // Use parent's environment block
-        L"../x64/Debug",           // Use parent's starting directory 
+        "./x64/Debug",           // Use parent's starting directory 
         startupInfo,            // Pointer to STARTUPINFO structure
         processInfo)           // Pointer to PROCESS_INFORMATION structure
         )
@@ -44,8 +44,8 @@ int main()
     dataStartupInfo.cb = sizeof(dataStartupInfo);
     ZeroMemory(&dataProcessInfo, sizeof(dataProcessInfo));
 
-    crateProcessOnNewWindow(&alarmStartupInfo, &alarmProcessInfo, L"../x64/Debug/show_alarm.exe");
-    crateProcessOnNewWindow(&dataStartupInfo, &dataProcessInfo, L"../x64/Debug/show_data.exe");
+    crateProcessOnNewWindow(&alarmStartupInfo, &alarmProcessInfo, "./x64/Debug/show_alarm.exe");
+    crateProcessOnNewWindow(&dataStartupInfo, &dataProcessInfo, "./x64/Debug/show_data.exe");
 
     // Wait until child process exits.
     WaitForSingleObject(alarmProcessInfo.hProcess, INFINITE);
@@ -56,6 +56,8 @@ int main()
     CloseHandle(dataProcessInfo.hProcess);
     CloseHandle(alarmProcessInfo.hThread);
     CloseHandle(dataProcessInfo.hThread);
+    int x;
+    cin >> x;
     return 0;
 }
 
