@@ -60,7 +60,7 @@ int BaseMessage::get_rand_int(int low, int high)
 	Returns a random intenger between low and high (closed interval).
 	*/
 	int number;
-	number = rand() % (high + 1) + low;
+	number = rand() % high + low;
 	return number;
 }
 
