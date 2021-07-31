@@ -8,7 +8,9 @@
 #include <string>
 #include <direct.h>
 #include "tp_atr.h"
+#include "Messages.h"
 using namespace std;
+using namespace Messages;
 
 int crateProcessOnNewWindow(STARTUPINFO* startupInfo, PROCESS_INFORMATION* processInfo,LPCSTR filePath) {
     if (!CreateProcess(filePath,   // No module name (use command line)
@@ -29,35 +31,47 @@ int crateProcessOnNewWindow(STARTUPINFO* startupInfo, PROCESS_INFORMATION* proce
     return 0;
 }
 
+void scratch_main() {
+    char m[52];
+    PIMSMessage m1(2);
+    m1.getCharMessage(m);
+    for (int i = 0; i < 31; i++) {
+        cout << m[i];
+    };
+    getchar();
+    return;
+}
+
 int main()
 {
-    STARTUPINFO alarmStartupInfo;
-    STARTUPINFO dataStartupInfo;
-    PROCESS_INFORMATION alarmProcessInfo;
-    PROCESS_INFORMATION dataProcessInfo;
+    //STARTUPINFO alarmStartupInfo;
+    //STARTUPINFO dataStartupInfo;
+    //PROCESS_INFORMATION alarmProcessInfo;
+    //PROCESS_INFORMATION dataProcessInfo;
 
-    ZeroMemory(&alarmStartupInfo, sizeof(alarmStartupInfo));
-    alarmStartupInfo.cb = sizeof(alarmStartupInfo);
-    ZeroMemory(&alarmProcessInfo, sizeof(alarmProcessInfo));
 
-    ZeroMemory(&dataStartupInfo, sizeof(dataStartupInfo));
-    dataStartupInfo.cb = sizeof(dataStartupInfo);
-    ZeroMemory(&dataProcessInfo, sizeof(dataProcessInfo));
+    //ZeroMemory(&alarmStartupInfo, sizeof(alarmStartupInfo));
+    //alarmStartupInfo.cb = sizeof(alarmStartupInfo);
+    //ZeroMemory(&alarmProcessInfo, sizeof(alarmProcessInfo));
 
-    crateProcessOnNewWindow(&alarmStartupInfo, &alarmProcessInfo, "./x64/Debug/show_alarm.exe");
-    crateProcessOnNewWindow(&dataStartupInfo, &dataProcessInfo, "./x64/Debug/show_data.exe");
+    //ZeroMemory(&dataStartupInfo, sizeof(dataStartupInfo));
+    //dataStartupInfo.cb = sizeof(dataStartupInfo);
+    //ZeroMemory(&dataProcessInfo, sizeof(dataProcessInfo));
 
-    // Wait until child process exits.
-    WaitForSingleObject(alarmProcessInfo.hProcess, INFINITE);
-    WaitForSingleObject(dataProcessInfo.hProcess, INFINITE);
+    //crateProcessOnNewWindow(&alarmStartupInfo, &alarmProcessInfo, "./x64/Debug/show_alarm.exe");
+    //crateProcessOnNewWindow(&dataStartupInfo, &dataProcessInfo, "./x64/Debug/show_data.exe");
 
-    // Close process and thread handles. 
-    CloseHandle(alarmProcessInfo.hProcess);
-    CloseHandle(dataProcessInfo.hProcess);
-    CloseHandle(alarmProcessInfo.hThread);
-    CloseHandle(dataProcessInfo.hThread);
-    int x;
-    cin >> x;
+    //// Wait until child process exits.
+    //WaitForSingleObject(alarmProcessInfo.hProcess, INFINITE);
+    //WaitForSingleObject(dataProcessInfo.hProcess, INFINITE);
+
+    //// Close process and thread handles. 
+    //CloseHandle(alarmProcessInfo.hProcess);
+    //CloseHandle(dataProcessInfo.hProcess);
+    //CloseHandle(alarmProcessInfo.hThread);
+    //CloseHandle(dataProcessInfo.hThread);
+    //getchar();
+    scratch_main();
     return 0;
 }
 
