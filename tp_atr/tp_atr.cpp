@@ -18,7 +18,7 @@ int crateProcessOnNewWindow(STARTUPINFO* startupInfo, PROCESS_INFORMATION* proce
         FALSE,          // Set handle inheritance to FALSE
         CREATE_NEW_CONSOLE,              // No creation flags
         NULL,           // Use parent's environment block
-        L"..\\Debug",           // Use parent's starting directory 
+        L"..\\x64\\Debug",           // Use parent's starting directory 
         startupInfo,            // Pointer to STARTUPINFO structure
         processInfo)           // Pointer to PROCESS_INFORMATION structure
         )
@@ -44,8 +44,8 @@ int main()
     dataStartupInfo.cb = sizeof(dataStartupInfo);
     ZeroMemory(&dataProcessInfo, sizeof(dataProcessInfo));
 
-    crateProcessOnNewWindow(&alarmStartupInfo, &alarmProcessInfo, L"..\\Debug\\show_alarm.exe");
-    crateProcessOnNewWindow(&dataStartupInfo, &dataProcessInfo, L"..\\Debug\\show_data.exe");
+    crateProcessOnNewWindow(&alarmStartupInfo, &alarmProcessInfo, L"..\\x64\\Debug\\show_alarm.exe");
+    crateProcessOnNewWindow(&dataStartupInfo, &dataProcessInfo, L"..\\x64\\Debug\\show_data.exe");
 
     // Wait until child process exits.
     WaitForSingleObject(alarmProcessInfo.hProcess, INFINITE);
