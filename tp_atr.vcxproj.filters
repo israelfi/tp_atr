@@ -41,5 +41,8 @@
     <ClInclude Include="tp_atr\tp_atr.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="tp_atr\CheckForError.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
