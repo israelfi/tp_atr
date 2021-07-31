@@ -18,12 +18,6 @@
     <ClCompile Include="read_sdcd.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="show_alarm\show_alarm.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="show_data\show_data.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="tp_atr\alarm_capture.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -34,9 +28,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="tp_atr\read_pims.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="tp_atr\show_data.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="tp_atr\tp_atr.cpp">
