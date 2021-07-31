@@ -139,17 +139,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\read_sdcd.cpp" />
     <ClCompile Include="alarm_capture.cpp" />
-    <ClCompile Include="Messages.cpp" />
-    <ClCompile Include="read_pims.cpp" />
     <ClCompile Include="data_capture.cpp" />
-    <ClCompile Include="show_alarms.cpp" />
+    <ClCompile Include="read_pims.cpp" />
     <ClCompile Include="show_data.cpp" />
     <ClCompile Include="tp_atr.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Messages.h" />
+    <ClInclude Include="tp_atr.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

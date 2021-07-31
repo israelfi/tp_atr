@@ -1,31 +1,71 @@
-#include <iostream>
-#include "Messages.h"
+// tp_atr.cpp : Este arquivo contém a função 'main'. A execução do programa começa e termina ali.
+//
 
-using namespace Messages;
+#include <iostream>
+#include <windows.h>
+#include <stdio.h>
+#include <tchar.h>
+#include <string>
+#include <direct.h>
+#include "tp_atr.h"
+using namespace std;
+
+int crateProcessOnNewWindow(STARTUPINFO* startupInfo, PROCESS_INFORMATION* processInfo,LPCWSTR filePath) {
+    if (!CreateProcess(filePath,   // No module name (use command line)
+        NULL,        // Command line
+        NULL,           // Process handle not inheritable
+        NULL,           // Thread handle not inheritable
+        FALSE,          // Set handle inheritance to FALSE
+        CREATE_NEW_CONSOLE,              // No creation flags
+        NULL,           // Use parent's environment block
+        L"..\\Debug",           // Use parent's starting directory 
+        startupInfo,            // Pointer to STARTUPINFO structure
+        processInfo)           // Pointer to PROCESS_INFORMATION structure
+        )
+    {
+        printf("CreateProcess failed (%d).\n", GetLastError());
+        return -1;
+    }
+    return 0;
+}
 
 int main()
 {
-    PIMSMessage m1(2);
-    //printf("%d\n", m1.nseq);
-    std::cout << m1.getMessage() << std::endl;
-    getchar();
+    STARTUPINFO alarmStartupInfo;
+    STARTUPINFO dataStartupInfo;
+    PROCESS_INFORMATION alarmProcessInfo;
+    PROCESS_INFORMATION dataProcessInfo;
 
-    PIMSMessage m2(9);
-    std::cout << m2.getMessage() << std::endl;
-    getchar();
+    ZeroMemory(&alarmStartupInfo, sizeof(alarmStartupInfo));
+    alarmStartupInfo.cb = sizeof(alarmStartupInfo);
+    ZeroMemory(&alarmProcessInfo, sizeof(alarmProcessInfo));
 
-    PIMSMessage m3(2);
-    std::cout << m3.getMessage() << std::endl;
-    getchar();
+    ZeroMemory(&dataStartupInfo, sizeof(dataStartupInfo));
+    dataStartupInfo.cb = sizeof(dataStartupInfo);
+    ZeroMemory(&dataProcessInfo, sizeof(dataProcessInfo));
 
-    PIMSMessage m4(9);
-    std::cout << m4.getMessage() << std::endl;
-    getchar();
+    crateProcessOnNewWindow(&alarmStartupInfo, &alarmProcessInfo, L"..\\Debug\\show_alarm.exe");
+    crateProcessOnNewWindow(&dataStartupInfo, &dataProcessInfo, L"..\\Debug\\show_data.exe");
 
-    PIMSMessage m5(2);
-    std::cout << m5.getMessage() << std::endl;
-    getchar();
+    // Wait until child process exits.
+    WaitForSingleObject(alarmProcessInfo.hProcess, INFINITE);
+    WaitForSingleObject(dataProcessInfo.hProcess, INFINITE);
 
-    PIMSMessage m6(9);
-    std::cout << m6.getMessage() << std::endl;
+    // Close process and thread handles. 
+    CloseHandle(alarmProcessInfo.hProcess);
+    CloseHandle(dataProcessInfo.hProcess);
+    CloseHandle(alarmProcessInfo.hThread);
+    CloseHandle(dataProcessInfo.hThread);
+    return 0;
 }
+
+// Executar programa: Ctrl + F5 ou Menu Depurar > Iniciar Sem Depuração
+// Depurar programa: F5 ou menu Depurar > Iniciar Depuração
+
+// Dicas para Começar: 
+//   1. Use a janela do Gerenciador de Soluções para adicionar/gerenciar arquivos
+//   2. Use a janela do Team Explorer para conectar-se ao controle do código-fonte
+//   3. Use a janela de Saída para ver mensagens de saída do build e outras mensagens
+//   4. Use a janela Lista de Erros para exibir erros
+//   5. Ir Para o Projeto > Adicionar Novo Item para criar novos arquivos de código, ou Projeto > Adicionar Item Existente para adicionar arquivos de código existentes ao projeto
+//   6. No futuro, para abrir este projeto novamente, vá para Arquivo > Abrir > Projeto e selecione o arquivo. sln
