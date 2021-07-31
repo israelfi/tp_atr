@@ -108,6 +108,7 @@
     <ClCompile Include="tp_atr\tp_atr.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="tp_atr\CheckForError.h" />
     <ClInclude Include="tp_atr\Messages.h" />
     <ClInclude Include="tp_atr\tp_atr.h" />
   </ItemGroup>

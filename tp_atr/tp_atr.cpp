@@ -7,14 +7,22 @@
 #include <tchar.h>
 #include <string>
 #include <direct.h>
+#include <process.h>
 #include "tp_atr.h"
 #include "Messages.h"
+#include "CheckForError.h"
 
 #define MESSAGE_TYPE_INDEX 6
 #define MAX_MESSAGES 100
-#define MESSAGE_SIZE 52
+#define MESSAGE_SIZE 53
 #define CRITICAL_ALARM_TYPE 9
 #define NON_CRITICAL_ALARM_TYPE 2
+#define ALARM_THREADS 2
+#define DATA_THREADS 1
+
+typedef unsigned (WINAPI* CAST_FUNCTION)(LPVOID);	//Casting para terceiro e sexto par�metros da fun��o
+                                                    //_beginthreadex
+typedef unsigned* CAST_LPDWORD;
 
 using namespace std;
 using namespace Messages;
@@ -95,21 +103,36 @@ void dataMessageCapture() {
     }
 }
 
+void incrementWritePosition() {
+    writePosition = (writePosition + 1) % MAX_MESSAGES;
+}
+
 void writeMessage(const char* message) {
     strcpy(circularList[writePosition], message);
+    incrementWritePosition();
 }
 
 void writeAlarmMessage(int alarmType) {
+    WaitForSingleObject(hWriteMutex,NULL);
+    WaitForSingleObject(hWriteCircularList, NULL);
+
+    Messages::PIMSMessage alarm(alarmType);
+
+    writeMessage(alarm.getMessage().c_str());
+
+    ReleaseSemaphore(hReadCircularList, 1, NULL);
+    ReleaseSemaphore(hWriteMutex, 1, NULL);
+}
+
+void writeCriticalAlarmMessage() {
     while (USER_INPUT != "ESC") {
-        WaitForSingleObject(hWriteMutex,NULL);
-        WaitForSingleObject(hWriteCircularList, NULL);
+        writeAlarmMessage(CRITICAL_ALARM_TYPE);
+    }
+}
 
-        Messages::PIMSMessage alarm(alarmType);
-
-        writeMessage(alarm.getMessage().c_str());
-
-        ReleaseSemaphore(hReadCircularList, 1, NULL);
-        ReleaseSemaphore(hWriteMutex, 1, NULL);
+void writeNonCriticalAlarmMessage() {
+    while (USER_INPUT != "ESC") {
+        writeAlarmMessage(NON_CRITICAL_ALARM_TYPE);
     }
 }
 
@@ -127,12 +150,34 @@ void writeDataMessage() {
     }
 }
 
+void createCircularListSemaphores(){
+    hReadCircularList = CreateSemaphore(NULL, 0, MAX_MESSAGES,"Readers semaphore");
+    CheckForError(hReadCircularList);
+    hWriteCircularList = CreateSemaphore(NULL, MAX_MESSAGES, MAX_MESSAGES, "Writers semaphore");
+    CheckForError(hWriteCircularList);
+    hReadMutex = CreateSemaphore(NULL, 1, 1, "Readers mutex");
+    CheckForError(hReadMutex);
+    hWriteMutex = CreateSemaphore(NULL, 1, 1, "Writers mutex");
+    CheckForError(hWriteMutex);
+
+}
+
 int main()
 {
+    char CRITICAL_ALARM_HANDLE_INDEX = 0;
+    char NON_CRITICAL_ALARM_HANDLE_INDEX = 1;
+    char DATA_HANDLE_INDEX = 2;
+
     STARTUPINFO alarmStartupInfo;
     STARTUPINFO dataStartupInfo;
     PROCESS_INFORMATION alarmProcessInfo;
     PROCESS_INFORMATION dataProcessInfo;
+
+    DWORD dwIdWriteCriticalAlarm;
+    DWORD dwIdWriteNonCriticalAlarm;
+    DWORD dwIdWriteData;
+
+    HANDLE hThreads[ALARM_THREADS + DATA_THREADS];
 
 
     ZeroMemory(&alarmStartupInfo, sizeof(alarmStartupInfo));
@@ -145,6 +190,53 @@ int main()
 
     crateProcessOnNewWindow(&alarmStartupInfo, &alarmProcessInfo, "./x64/Debug/show_alarm.exe");
     crateProcessOnNewWindow(&dataStartupInfo, &dataProcessInfo, "./x64/Debug/show_data.exe");
+
+    createCircularListSemaphores();
+
+    hThreads[CRITICAL_ALARM_HANDLE_INDEX] = 
+        (HANDLE)_beginthreadex(
+                NULL,
+                0,
+                (CAST_FUNCTION)writeCriticalAlarmMessage,
+                (LPVOID)0,
+                0,
+                (CAST_LPDWORD)&dwIdWriteCriticalAlarm);
+    if (hThreads[CRITICAL_ALARM_HANDLE_INDEX])
+        printf("Thread Alarme crítico criada com sucesso! Id=%0x\n", dwIdWriteCriticalAlarm);
+    else {
+        printf("Erro na criacao da thread Alarme crítico! N = %d Erro = %d\n", CRITICAL_ALARM_HANDLE_INDEX, errno);
+        exit(0);
+    }
+
+    hThreads[NON_CRITICAL_ALARM_HANDLE_INDEX] =
+        (HANDLE)_beginthreadex(
+            NULL,
+            0,
+            (CAST_FUNCTION)writeNonCriticalAlarmMessage,
+            (LPVOID)0,
+            0,
+            (CAST_LPDWORD)&dwIdWriteNonCriticalAlarm);
+    if (hThreads[NON_CRITICAL_ALARM_HANDLE_INDEX])
+        printf("Thread Alarme não crítico criada com sucesso! Id=%0x\n", dwIdWriteNonCriticalAlarm);
+    else {
+        printf("Erro na criacao da thread Alarme não crítico! N = %d Erro = %d\n", NON_CRITICAL_ALARM_HANDLE_INDEX, errno);
+        exit(0);
+    }
+
+    hThreads[DATA_HANDLE_INDEX] =
+        (HANDLE)_beginthreadex(
+            NULL,
+            0,
+            (CAST_FUNCTION)writeDataMessage,
+            (LPVOID)0,
+            0,
+            (CAST_LPDWORD)&dwIdWriteData);
+    if (hThreads[DATA_HANDLE_INDEX])
+        printf("Thread Dados criada com sucesso! Id=%0x\n", dwIdWriteData);
+    else {
+        printf("Erro na criacao da thread Dados! N = %d Erro = %d\n", DATA_HANDLE_INDEX, errno);
+        exit(0);
+    }
 
     // Wait until child process exits.
     WaitForSingleObject(alarmProcessInfo.hProcess, INFINITE);
