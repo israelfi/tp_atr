@@ -21,7 +21,7 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{fffb8f42-bd4e-403f-b39a-9b54b4fe3b4a}</ProjectGuid>
+    <ProjectGuid>{2d4cbb5e-0d16-4c2b-a75b-472cf760577b}</ProjectGuid>
     <RootNamespace>showalarm</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
