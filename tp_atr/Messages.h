@@ -11,6 +11,7 @@ namespace Messages
 		string createRandomString(int size);
 		const string currentTime(bool MILISECOND);
 		int get_rand_int(int low, int high);
+		void getCharMessage(char* outStr);
 	};
 
 	class SDCDMessage:BaseMessage
@@ -34,6 +35,7 @@ namespace Messages
 		const string currentTime();
 		string createRandomString(int size);
 		SDCDMessage();
+		void getCharMessage(char* outStr);
 
 	};
 
@@ -55,6 +57,7 @@ namespace Messages
 		string getMessage();
 		const string currentTime();
 		PIMSMessage(int alarm_type);
+		void getCharMessage(char* outStr);
 
 	};
 

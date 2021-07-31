@@ -60,8 +60,18 @@ int BaseMessage::get_rand_int(int low, int high)
 	Returns a random intenger between low and high (closed interval).
 	*/
 	int number;
-	number = rand() % (high + 1) + low;
+	number = rand() % high + low;
 	return number;
+}
+
+void BaseMessage::getCharMessage(char* outStr)
+{
+	int message_size = message.length();
+	char arr[52];
+	for (int i = 0; i < message_size; i++) {
+		outStr[i] = message[i];
+	}
+	return;
 }
 
 string SDCDMessage::parserMessage()
@@ -183,6 +193,12 @@ SDCDMessage::SDCDMessage()
 	message = SDCDMessage::createMessage();
 }
 
+void SDCDMessage::getCharMessage(char* outStr)
+{
+	BaseMessage::getCharMessage(outStr);
+	return;
+}
+
 int SDCDMessage::counter = 0;
 
 string PIMSMessage::createMessage() {
@@ -274,5 +290,11 @@ PIMSMessage::PIMSMessage(int alarm_type)
 	nseq = (counter++) % 1000000;
 	type = alarm_type;
 	message = PIMSMessage::createMessage();
+}
+
+void PIMSMessage::getCharMessage(char* outStr)
+{
+	BaseMessage::getCharMessage(outStr);
+	return;
 }
 int PIMSMessage::counter = 0;

@@ -9,12 +9,15 @@
 #include <direct.h>
 #include "tp_atr.h"
 #include "Messages.h"
+
 #define MESSAGE_TYPE_INDEX 6
 #define MAX_MESSAGES 100
 #define MESSAGE_SIZE 52
 #define CRITICAL_ALARM_TYPE 9
 #define NON_CRITICAL_ALARM_TYPE 2
+
 using namespace std;
+using namespace Messages;
 
 string USER_INPUT;
 HANDLE hReadCircularList;
@@ -131,6 +134,7 @@ int main()
     PROCESS_INFORMATION alarmProcessInfo;
     PROCESS_INFORMATION dataProcessInfo;
 
+
     ZeroMemory(&alarmStartupInfo, sizeof(alarmStartupInfo));
     alarmStartupInfo.cb = sizeof(alarmStartupInfo);
     ZeroMemory(&alarmProcessInfo, sizeof(alarmProcessInfo));
@@ -151,8 +155,7 @@ int main()
     CloseHandle(dataProcessInfo.hProcess);
     CloseHandle(alarmProcessInfo.hThread);
     CloseHandle(dataProcessInfo.hThread);
-    int x;
-    cin >> x;
+    getchar();
     return 0;
 }
 
