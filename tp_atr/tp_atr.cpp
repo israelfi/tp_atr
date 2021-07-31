@@ -7,7 +7,9 @@
 #include <tchar.h>
 #include <string>
 #include <direct.h>
+#include <conio.h>				//_getch
 #include <process.h>
+
 #include "tp_atr.h"
 #include "Messages.h"
 #include "CheckForError.h"
@@ -24,6 +26,16 @@ typedef unsigned (WINAPI* CAST_FUNCTION)(LPVOID);	//Casting para terceiro e sext
                                                     //_beginthreadex
 typedef unsigned* CAST_LPDWORD;
 
+// Keyboard inputs
+#define	ESC				0x1B
+#define S               0x73
+#define P               0x70
+#define D               0x64
+#define A               0x61
+#define O               0x6f
+#define C               0x63
+
+
 using namespace std;
 using namespace Messages;
 
@@ -32,9 +44,22 @@ HANDLE hReadCircularList;
 HANDLE hWriteCircularList;
 HANDLE hReadMutex;
 HANDLE hWriteMutex;
+
+// Events regarding the keyboard input
+HANDLE hEscEvent;
+HANDLE hSEvent;
+HANDLE hPEvent;
+HANDLE hDEvent;
+HANDLE hAEvent;
+HANDLE hOEvent;
+HANDLE hCEvent;
+
+DWORD dwRet;
+
 char circularList[MAX_MESSAGES][MESSAGE_SIZE];
 int readPosition;
 int writePosition;
+int nTecla;
 
 int crateProcessOnNewWindow(STARTUPINFO* startupInfo, PROCESS_INFORMATION* processInfo,LPCSTR filePath) {
     if (!CreateProcess(filePath,   // No module name (use command line)
@@ -150,6 +175,77 @@ void writeDataMessage() {
     }
 }
 
+
+void readKeyboard() {
+    /*
+    Function that reads the user's input. Available options:
+        s: Freezes/Unfreezes SDCD reading task - writeMessage
+        p: Freezes/Unfreezes PIMS reading task - writeAlarmMessage
+        d: Freezes/Unfreezes data capture task - dataMessageCapture
+        a: Freezes/Unfreezes alarm capture task - alarmMessageCapture
+        o: Freezes/Unfreezes data exhibition task - ?
+        c: Freezes/Unfreezes alarm exhibition task - ?
+        ESC: Terminate all tasks
+    */
+
+    // !!! Lembrar de checar por erro !!!
+    
+    // ESC should terminate all tasks, hence, it has automatic reset
+    hEscEvent = CreateEvent(NULL, TRUE, FALSE, "EventoEsc");
+    // The others have manual reset
+    hSEvent = CreateEvent(NULL, FALSE, FALSE, "EventoS");
+    hPEvent = CreateEvent(NULL, FALSE, FALSE, "EventoP");
+    hDEvent = CreateEvent(NULL, FALSE, FALSE, "EventoD");
+    hAEvent = CreateEvent(NULL, FALSE, FALSE, "EventoA");
+    hOEvent = CreateEvent(NULL, FALSE, FALSE, "EventoO");
+    hCEvent = CreateEvent(NULL, FALSE, FALSE, "EventoC");
+
+    do {
+        cout << "Press a key" << endl;
+        nTecla = _getch();
+        switch (nTecla)
+        {
+        case S:
+            cout << "S" << endl;
+            PulseEvent(hSEvent);
+            break;
+        case P:
+            cout << "P" << endl;
+            PulseEvent(hPEvent);
+            break;
+        case D:
+            cout << "D" << endl;
+            PulseEvent(hDEvent);
+            break;
+        case A:
+            cout << "A" << endl;
+            PulseEvent(hAEvent);
+            break;
+        case O:
+            cout << "O" << endl;
+            PulseEvent(hOEvent);
+            break;
+        case C:
+            cout << "C" << endl;
+            PulseEvent(hOEvent);
+            break;
+        case ESC:
+            cout << "ESC" << endl;
+            PulseEvent(hEscEvent);
+            break;
+        default:
+            cout << "Invalid key" << endl;
+            break;
+        }
+    } while (nTecla != ESC);
+    cout << "All tasks ended" << endl;
+
+    // Waiting threads to end
+    // dwRet = WaitForMultipleObjects(NUM_THREADS,hThreads,TRUE,INFINITE);
+    dwRet = WaitForMultipleObjects(0, 0, TRUE, INFINITE);
+    //CheckForError(dwRet == WAIT_OBJECT_0);
+    CloseHandle(hEscEvent);
+
 void createCircularListSemaphores(){
     hReadCircularList = CreateSemaphore(NULL, 0, MAX_MESSAGES,"Readers semaphore");
     CheckForError(hReadCircularList);
@@ -159,11 +255,12 @@ void createCircularListSemaphores(){
     CheckForError(hReadMutex);
     hWriteMutex = CreateSemaphore(NULL, 1, 1, "Writers mutex");
     CheckForError(hWriteMutex);
-
 }
 
 int main()
 {
+    readKeyboard();
+
     char CRITICAL_ALARM_HANDLE_INDEX = 0;
     char NON_CRITICAL_ALARM_HANDLE_INDEX = 1;
     char DATA_HANDLE_INDEX = 2;
@@ -250,14 +347,3 @@ int main()
     getchar();
     return 0;
 }
-
-// Executar programa: Ctrl + F5 ou Menu Depurar > Iniciar Sem Depuração
-// Depurar programa: F5 ou menu Depurar > Iniciar Depuração
-
-// Dicas para Começar: 
-//   1. Use a janela do Gerenciador de Soluções para adicionar/gerenciar arquivos
-//   2. Use a janela do Team Explorer para conectar-se ao controle do código-fonte
-//   3. Use a janela de Saída para ver mensagens de saída do build e outras mensagens
-//   4. Use a janela Lista de Erros para exibir erros
-//   5. Ir Para o Projeto > Adicionar Novo Item para criar novos arquivos de código, ou Projeto > Adicionar Item Existente para adicionar arquivos de código existentes ao projeto
-//   6. No futuro, para abrir este projeto novamente, vá para Arquivo > Abrir > Projeto e selecione o arquivo. sln
