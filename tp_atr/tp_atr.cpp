@@ -9,8 +9,24 @@
 #include <direct.h>
 #include "tp_atr.h"
 #include "Messages.h"
+
+#define MESSAGE_TYPE_INDEX 6
+#define MAX_MESSAGES 100
+#define MESSAGE_SIZE 52
+#define CRITICAL_ALARM_TYPE 9
+#define NON_CRITICAL_ALARM_TYPE 2
+
 using namespace std;
 using namespace Messages;
+
+string USER_INPUT;
+HANDLE hReadCircularList;
+HANDLE hWriteCircularList;
+HANDLE hReadMutex;
+HANDLE hWriteMutex;
+char circularList[MAX_MESSAGES][MESSAGE_SIZE];
+int readPosition;
+int writePosition;
 
 int crateProcessOnNewWindow(STARTUPINFO* startupInfo, PROCESS_INFORMATION* processInfo,LPCSTR filePath) {
     if (!CreateProcess(filePath,   // No module name (use command line)
@@ -31,47 +47,115 @@ int crateProcessOnNewWindow(STARTUPINFO* startupInfo, PROCESS_INFORMATION* proce
     return 0;
 }
 
-void scratch_main() {
-    char m[52];
-    PIMSMessage m1(2);
-    m1.getCharMessage(m);
-    for (int i = 0; i < 31; i++) {
-        cout << m[i];
-    };
-    getchar();
-    return;
+bool isAlarmMessage(char* message) {
+    char messageType = message[MESSAGE_TYPE_INDEX];
+    if (messageType == '2' || messageType == '9')
+        return true;
+    else 
+        return false;
+}
+
+void incrementReadPosition() {
+    readPosition = (readPosition + 1) % MAX_MESSAGES;
+}
+
+void alarmMessageCapture() {
+    char alarmMessage[MESSAGE_SIZE];
+    while (USER_INPUT != "ESC") {
+        WaitForSingleObject(hReadMutex, NULL);
+        WaitForSingleObject(hReadCircularList,NULL);
+        if (isAlarmMessage(circularList[readPosition])) {
+            strcpy(alarmMessage,circularList[readPosition]);
+            printf(alarmMessage);
+            incrementReadPosition();
+            ReleaseSemaphore(hWriteCircularList, 1, NULL);
+        }
+        else {
+            ReleaseSemaphore(hReadCircularList, 1, NULL);
+        }
+        ReleaseSemaphore(hReadMutex,1, NULL);
+    }
+}
+
+void dataMessageCapture() {
+    char dataMessage[MESSAGE_SIZE];
+    while (USER_INPUT != "ESC") {
+        WaitForSingleObject(hReadMutex, NULL);
+        WaitForSingleObject(hReadCircularList, NULL);
+
+        if (!isAlarmMessage(circularList[readPosition])) {
+            strcpy(dataMessage, circularList[readPosition]);
+            printf(dataMessage);
+            incrementReadPosition();
+            ReleaseSemaphore(hWriteCircularList,1,NULL);
+        }
+        else {
+            ReleaseSemaphore(hReadCircularList, 1, NULL);
+        }
+    }
+}
+
+void writeMessage(const char* message) {
+    strcpy(circularList[writePosition], message);
+}
+
+void writeAlarmMessage(int alarmType) {
+    while (USER_INPUT != "ESC") {
+        WaitForSingleObject(hWriteMutex,NULL);
+        WaitForSingleObject(hWriteCircularList, NULL);
+
+        Messages::PIMSMessage alarm(alarmType);
+
+        writeMessage(alarm.getMessage().c_str());
+
+        ReleaseSemaphore(hReadCircularList, 1, NULL);
+        ReleaseSemaphore(hWriteMutex, 1, NULL);
+    }
+}
+
+void writeDataMessage() {
+    while (USER_INPUT != "ESC") {
+        WaitForSingleObject(hWriteMutex, NULL);
+        WaitForSingleObject(hWriteCircularList, NULL);
+
+        Messages::SDCDMessage data;
+
+        writeMessage(data.getMessage().c_str());
+
+        ReleaseSemaphore(hReadCircularList, 1, NULL);
+        ReleaseSemaphore(hWriteMutex, 1, NULL);
+    }
 }
 
 int main()
 {
-    //STARTUPINFO alarmStartupInfo;
-    //STARTUPINFO dataStartupInfo;
-    //PROCESS_INFORMATION alarmProcessInfo;
-    //PROCESS_INFORMATION dataProcessInfo;
+    STARTUPINFO alarmStartupInfo;
+    STARTUPINFO dataStartupInfo;
+    PROCESS_INFORMATION alarmProcessInfo;
+    PROCESS_INFORMATION dataProcessInfo;
 
 
-    //ZeroMemory(&alarmStartupInfo, sizeof(alarmStartupInfo));
-    //alarmStartupInfo.cb = sizeof(alarmStartupInfo);
-    //ZeroMemory(&alarmProcessInfo, sizeof(alarmProcessInfo));
+    ZeroMemory(&alarmStartupInfo, sizeof(alarmStartupInfo));
+    alarmStartupInfo.cb = sizeof(alarmStartupInfo);
+    ZeroMemory(&alarmProcessInfo, sizeof(alarmProcessInfo));
 
-    //ZeroMemory(&dataStartupInfo, sizeof(dataStartupInfo));
-    //dataStartupInfo.cb = sizeof(dataStartupInfo);
-    //ZeroMemory(&dataProcessInfo, sizeof(dataProcessInfo));
+    ZeroMemory(&dataStartupInfo, sizeof(dataStartupInfo));
+    dataStartupInfo.cb = sizeof(dataStartupInfo);
+    ZeroMemory(&dataProcessInfo, sizeof(dataProcessInfo));
 
-    //crateProcessOnNewWindow(&alarmStartupInfo, &alarmProcessInfo, "./x64/Debug/show_alarm.exe");
-    //crateProcessOnNewWindow(&dataStartupInfo, &dataProcessInfo, "./x64/Debug/show_data.exe");
+    crateProcessOnNewWindow(&alarmStartupInfo, &alarmProcessInfo, "./x64/Debug/show_alarm.exe");
+    crateProcessOnNewWindow(&dataStartupInfo, &dataProcessInfo, "./x64/Debug/show_data.exe");
 
-    //// Wait until child process exits.
-    //WaitForSingleObject(alarmProcessInfo.hProcess, INFINITE);
-    //WaitForSingleObject(dataProcessInfo.hProcess, INFINITE);
+    // Wait until child process exits.
+    WaitForSingleObject(alarmProcessInfo.hProcess, INFINITE);
+    WaitForSingleObject(dataProcessInfo.hProcess, INFINITE);
 
-    //// Close process and thread handles. 
-    //CloseHandle(alarmProcessInfo.hProcess);
-    //CloseHandle(dataProcessInfo.hProcess);
-    //CloseHandle(alarmProcessInfo.hThread);
-    //CloseHandle(dataProcessInfo.hThread);
-    //getchar();
-    scratch_main();
+    // Close process and thread handles. 
+    CloseHandle(alarmProcessInfo.hProcess);
+    CloseHandle(dataProcessInfo.hProcess);
+    CloseHandle(alarmProcessInfo.hThread);
+    CloseHandle(dataProcessInfo.hThread);
+    getchar();
     return 0;
 }
 
