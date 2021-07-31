@@ -5,9 +5,27 @@ using namespace Messages;
 
 int main()
 {
-    SDCDMessage m1, m2;
-    printf("%d\n", m1.nseq);
-    printf("%d\n", m2.nseq);
-
+    PIMSMessage m1(2);
+    //printf("%d\n", m1.nseq);
     std::cout << m1.getMessage() << std::endl;
+    getchar();
+
+    PIMSMessage m2(9);
+    std::cout << m2.getMessage() << std::endl;
+    getchar();
+
+    PIMSMessage m3(2);
+    std::cout << m3.getMessage() << std::endl;
+    getchar();
+
+    PIMSMessage m4(9);
+    std::cout << m4.getMessage() << std::endl;
+    getchar();
+
+    PIMSMessage m5(2);
+    std::cout << m5.getMessage() << std::endl;
+    getchar();
+
+    PIMSMessage m6(9);
+    std::cout << m6.getMessage() << std::endl;
 }

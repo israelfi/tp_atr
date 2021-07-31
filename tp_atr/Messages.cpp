@@ -1,12 +1,67 @@
-#include<iostream>
-#include<string>
+#include <iostream>
+#include <string>
+#include <time.h>
+#include <stdio.h>
+#include <chrono>
+#include <cstdlib>
 #include "Messages.h"
+#pragma warning(disable : 4996) //_CRT_SECURE_NO_WARNINGS
 
 using namespace Messages;
+using std::chrono::system_clock;
 
 
 string BaseMessage::getMessage() {
 	return message;
+}
+
+string BaseMessage::createRandomString(int size)
+{
+	std::string tmp_s;
+	static const char alphanum[] =
+		"0123456789"
+		"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+	tmp_s.reserve(size);
+
+	for (int i = 0; i < size; ++i)
+		tmp_s += alphanum[rand() % (sizeof(alphanum) - 1)];
+
+	return tmp_s;
+}
+
+const string BaseMessage::currentTime(bool MILISECOND)
+{
+	/*
+	Returns current time in format HH:MM:SS.MSS or HH:MM:SS
+	*/
+
+	auto currentTime = system_clock::now();
+	char buffer[80];
+
+	auto transformed = currentTime.time_since_epoch().count() / 1000000;
+
+	auto millis = transformed % 1000;
+
+	std::time_t tt;
+	tt = system_clock::to_time_t(currentTime);
+	auto timeinfo = localtime(&tt);
+	strftime(buffer, 80, "%H:%M:%S", timeinfo);
+	if (MILISECOND) {
+		sprintf(buffer, "%s.%03d", buffer, (int)millis);
+	}
+
+	return string(buffer);
+}
+
+int BaseMessage::get_rand_int(int low, int high)
+{
+	/*
+	Returns a random intenger between low and high (closed interval).
+	*/
+	int number;
+	number = rand() % (high + 1) + low;
+	return number;
 }
 
 string SDCDMessage::parserMessage()
@@ -24,7 +79,7 @@ string SDCDMessage::parserMessage()
 	value = stof(message.substr(17, 24));
 	ue = message.substr(25, 32);
 	mode = message.substr(33, 33);
-	time = message.substr(34, 45);
+	time_stamp = message.substr(34, 45);
 
 	return string();
 
@@ -34,21 +89,58 @@ string SDCDMessage::createMessage()
 {
 	/*
 	This function is responsible to create the message of SDCD. The message format is:
-	| NNNNNN | N | AAAAAAAAAA | NNNNNN.NN | A | HH:MM:SS:MSS
-	   NSEQ   Type    TAG        VALUE     MODE   TIMESTAMP
-
-	TODO: 
-	- create the parameters randomly
-	- find a way of casting float and int to string in order to add them in the final message
+	| NNNNNN | N | AAAAAAAAAA | NNNNNN.NN | AAAAAAAA | A | HH:MM:SS.MSS
+	   NSEQ   Type    TAG        VALUE         UE     MODE  TIMESTAMP
 	*/
-
-	tag = string("012-34-567");
-	value = 765.21;
-	ue = string("a");
-	mode = 'a';
-	time = string("HH:MM:SS.MSS");
+	int precisionVal = 2;
+	int n, aux_random;
+	int digits = 0;
 	string aux;
-	aux = tag + "|" + ue + "|" + time;
+
+	srand(static_cast <unsigned> (time(0)));
+
+	// Getting NSEQ value and completing with zeros unitl it has 6 digits
+	n = nseq;
+	do {
+		n /= 10;
+		++digits;
+	} while (n != 0);
+	string nseq_string = string(6 - digits, '0').append(std::to_string(nseq));
+
+	// TYPE is always 1
+	type = 1;
+
+	// Setting TAG value
+	tag = createRandomString(10);
+
+	// Generating random float numbers between 10000 and 99999
+	value = BaseMessage::get_rand_int(1000000, 9999900) / 100.0;
+	string value_string = std::to_string(value).substr(0, std::to_string(value).find(".") + precisionVal + 1);
+	
+	// Setting UE value
+	aux_random = BaseMessage::get_rand_int(0,2);
+	if (aux_random == 0) {
+		ue = string("K       ");
+	}
+	else if (aux_random == 1) {
+		ue = string("kgf/m2  ");
+	}
+	else {
+		ue = string("kg/m3   ");
+	}
+
+	// Choosing MODE randomly: rand() % 2 returns random values, 0 or 1.
+	if (rand() % 2) {
+		mode = 'A';
+	}
+	else {
+		mode = 'M';
+	}
+
+	// Getting the TIMESTAMP from the current time
+	time_stamp = SDCDMessage::currentTime();
+
+	aux = nseq_string + "|" + std::to_string(type) + "|" + tag + "|" + value_string + "|" + ue + "|"  + mode + "|" + time_stamp;
 	return aux;
 }
 
@@ -58,6 +150,20 @@ string SDCDMessage::getMessage()
 	Calling getMessage function from parent class
 	*/
 	return BaseMessage::getMessage();
+}
+
+const string SDCDMessage::currentTime()
+{	
+	/*
+	Returns current time in format HH:MM:SS.MSS in string type
+	*/
+
+	return BaseMessage::currentTime(true);
+}
+
+string SDCDMessage::createRandomString(int size)
+{
+	return BaseMessage::createRandomString(size);
 }
 
 SDCDMessage::SDCDMessage()
@@ -73,9 +179,100 @@ SDCDMessage::SDCDMessage()
 
 	This function also calls the createMessage method
 	*/
-	nseq = counter++;
-	message = createMessage();
+	nseq = (counter++) % 1000000;
+	message = SDCDMessage::createMessage();
 }
 
 int SDCDMessage::counter = 0;
 
+string PIMSMessage::createMessage() {
+	/*
+	This function is responsible to create the message of PIMS. The message format is:
+	|  NNNNNN  |  N  |  NNNN  |  NN  |  NNNNN  |  HH:MM:SS
+	    NSEQ    Type  Alarm ID DEGREE   PREV     TIMESTAMP
+	*/
+
+	int n, aux_random;
+	int digits = 0;
+	string aux;
+
+	// Getting NSEQ value and completing with zeros unitl it has 6 digits
+	n = nseq;
+	do {
+		n /= 10;
+		++digits;
+	} while (n != 0);
+	string nseq_string = string(6 - digits, '0').append(std::to_string(nseq));
+
+	// Type is set in constructor method
+
+	// Alarm ID
+	alarm_id = BaseMessage::get_rand_int(1, 9999);
+	digits = 0;
+	n = alarm_id;
+	do {
+		n /= 10;
+		++digits;
+	} while (n != 0);
+	string alarm_id_string = string(4 - digits, '0').append(std::to_string(alarm_id));
+
+	// Degree
+	degree = BaseMessage::get_rand_int(1, 99);
+	digits = 0;
+	n = degree;
+	do {
+		n /= 10;
+		++digits;
+	} while (n != 0);
+	string degree_string = string(2 - digits, '0').append(std::to_string(degree));
+
+	// Prev
+	prev = BaseMessage::get_rand_int(1, 14440);
+	digits = 0;
+	n = prev;
+	do {
+		n /= 10;
+		++digits;
+	} while (n != 0);
+	string prev_string = string(5 - digits, '0').append(std::to_string(prev));
+
+	// Timestamp
+	time_stamp = currentTime();
+
+	aux = nseq_string + "|" + std::to_string(type) + "|" + alarm_id_string + "|" + degree_string + "|" + prev_string + "|" + time_stamp;
+
+	return aux;
+}
+
+string PIMSMessage::getMessage()
+{
+	return BaseMessage::getMessage();
+}
+
+const string PIMSMessage::currentTime()
+{
+	/*
+	Returns current time in format HH:MM:SS in string type
+	*/
+
+	return BaseMessage::currentTime(false);
+}
+
+PIMSMessage::PIMSMessage(int alarm_type)
+{
+	/*
+	Constructor function. It already atributes nseq values in a incremeting way as the new messages from
+	the same class are created. For example:
+	 _______________________
+	|	PIMSMessage p1, p2;	|
+	|	-> p1.nseq is 0		|
+	|	-> p2.nseq is 1		|
+	 -----------------------
+
+	This function also calls the createMessage method
+	*/
+	nseq = (counter++) % 1000000;
+	type = alarm_type;
+	message = PIMSMessage::createMessage();
+}
+int PIMSMessage::counter = 0;
