@@ -66,7 +66,7 @@ int crateProcessOnNewWindow(STARTUPINFO* startupInfo, PROCESS_INFORMATION* proce
         NULL,        // Command line
         NULL,           // Process handle not inheritable
         NULL,           // Thread handle not inheritable
-        FALSE,          // Set handle inheritance to FALSE
+        TRUE,          // Set handle inheritance to FALSE
         CREATE_NEW_CONSOLE,              // No creation flags
         NULL,           // Use parent's environment block
         "./x64/Debug",           // Use parent's starting directory 
@@ -174,7 +174,7 @@ void writeAlarmMessage(int alarmType) {
 
             SetEvent(hPEvent);
 
-            printf("writeAlarmMessage rolando\n");
+            //printf("writeAlarmMessage rolando\n");
             WaitForSingleObject(hWriteMutex, NULL);
             WaitForSingleObject(hWriteCircularList, NULL);
 
@@ -240,8 +240,8 @@ void readKeyboard() {
         p: Freezes/Unfreezes PIMS reading task - writeAlarmMessage
         d: Freezes/Unfreezes data capture task - dataMessageCapture
         a: Freezes/Unfreezes alarm capture task - alarmMessageCapture
-        o: Freezes/Unfreezes data exhibition task - ?
-        c: Freezes/Unfreezes alarm exhibition task - ?
+        o: Freezes/Unfreezes data exhibition task - show_data.exe
+        c: Freezes/Unfreezes alarm exhibition task - show_alarm.exe
         ESC: Terminate all tasks
     */
     int state[] = { 0, 0, 0, 0, 0, 0 };
@@ -252,48 +252,48 @@ void readKeyboard() {
         {
         case S:
             if (state[0] == 0) {
-                std::cout << "S reset" << endl;
+                std::cout << "S reset - Tarefa de leitura do SDCD bloqueada!" << endl;
                 ResetEvent(hSEvent);
                 state[0] = 1;
             }
             else {
-                std::cout << "S set" << endl;
+                std::cout << "S set - Tarefa de leitura do SDCD desbloqueada!" << endl;
                 SetEvent(hSEvent);
                 state[0] = 0;
             }
             break;
         case P:
             if (state[1] == 0) {
-                std::cout << "P reset" << endl;
+                std::cout << "P reset - Tarefa de leitura do PIMS bloqueada!" << endl;
                 ResetEvent(hPEvent);
                 state[1] = 1;
             }
             else {
-                std::cout << "P set" << endl;
+                std::cout << "P set - Tarefa de leitura do SDCD desbloqueada!" << endl;
                 SetEvent(hPEvent);
                 state[1] = 0;
             }
             break;
         case D:
             if (state[2] == 0) {
-                std::cout << "D reset" << endl;
+                std::cout << "D reset - Tarefa de captura de dados do processo bloaqueada!" << endl;
                 ResetEvent(hDEvent);
                 state[2] = 1;
             }
             else {
-                std::cout << "D set" << endl;
+                std::cout << "D set - Tarefa de captura de dados do processo desbloaqueada!" << endl;
                 SetEvent(hDEvent);
                 state[2] = 0;
             }
             break;
         case A:
             if (state[3] == 0) {
-                std::cout << "A reset" << endl;
+                std::cout << "A reset - Tarefa de captura de dados de alarmes bloaqueada!" << endl;
                 ResetEvent(hAEvent);
                 state[3] = 1;
             }
             else {
-                std::cout << "A set" << endl;
+                std::cout << "A set - Tarefa de captura de dados de alarmes desbloaqueada!" << endl;
                 SetEvent(hAEvent);
                 state[3] = 0;
             }
