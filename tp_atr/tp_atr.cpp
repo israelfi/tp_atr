@@ -94,25 +94,46 @@ void incrementReadPosition() {
 
 void alarmMessageCapture() {
     char alarmMessage[MESSAGE_SIZE];
-    while (USER_INPUT != "ESC") {
-        WaitForSingleObject(hReadMutex, NULL);
-        WaitForSingleObject(hReadCircularList,NULL);
-        if (isAlarmMessage(circularList[readPosition])) {
-            strcpy(alarmMessage,circularList[readPosition]);
-            printf(alarmMessage);
-            incrementReadPosition();
-            ReleaseSemaphore(hWriteCircularList, 1, NULL);
+    HANDLE Events[2] = { hAEvent, hEscEvent };
+    DWORD ret;
+    int nTipoEvento;
+
+    do {
+        Sleep(250);
+        ret = WaitForMultipleObjects(2, Events, FALSE, INFINITE);
+        nTipoEvento = ret - WAIT_OBJECT_0;
+        if (nTipoEvento == 0) {
+            SetEvent(hAEvent);
+            WaitForSingleObject(hReadMutex, NULL);
+            WaitForSingleObject(hReadCircularList, NULL);
+            if (isAlarmMessage(circularList[readPosition])) {
+                strcpy(alarmMessage, circularList[readPosition]);
+                printf(alarmMessage);
+                incrementReadPosition();
+                ReleaseSemaphore(hWriteCircularList, 1, NULL);
+            }
+            else {
+                ReleaseSemaphore(hReadCircularList, 1, NULL);
+            }
+            ReleaseSemaphore(hReadMutex, 1, NULL);
         }
-        else {
-            ReleaseSemaphore(hReadCircularList, 1, NULL);
-        }
-        ReleaseSemaphore(hReadMutex,1, NULL);
-    }
+    } while (nTipoEvento == 0);
+    printf("Thread A terminando...\n");
+    
 }
 
 void dataMessageCapture() {
     char dataMessage[MESSAGE_SIZE];
-    while (USER_INPUT != "ESC") {
+    HANDLE Events[2] = { hDEvent, hEscEvent };
+    DWORD ret;
+    int nTipoEvento;
+
+    do {
+        Sleep(250);
+        ret = WaitForMultipleObjects(2, Events, FALSE, INFINITE);
+        nTipoEvento = ret - WAIT_OBJECT_0;
+
+        SetEvent(hDEvent);
         WaitForSingleObject(hReadMutex, NULL);
         WaitForSingleObject(hReadCircularList, NULL);
 
@@ -120,12 +141,14 @@ void dataMessageCapture() {
             strcpy(dataMessage, circularList[readPosition]);
             printf(dataMessage);
             incrementReadPosition();
-            ReleaseSemaphore(hWriteCircularList,1,NULL);
+            ReleaseSemaphore(hWriteCircularList, 1, NULL);
         }
         else {
             ReleaseSemaphore(hReadCircularList, 1, NULL);
         }
-    }
+        
+    } while (nTipoEvento == 0);
+    printf("Thread D terminando...\n");
 }
 
 void incrementWritePosition() {
@@ -138,48 +161,82 @@ void writeMessage(const char* message) {
 }
 
 void writeAlarmMessage(int alarmType) {
-    WaitForSingleObject(hWriteMutex,NULL);
-    WaitForSingleObject(hWriteCircularList, NULL);
+    HANDLE Events[2] = { hPEvent, hEscEvent };
+    DWORD ret;
+    int nTipoEvento;
 
-    Messages::PIMSMessage alarm(alarmType);
+    do {
+        Sleep(250);
+        ret = WaitForMultipleObjects(2, Events, FALSE, INFINITE);
+        nTipoEvento = ret - WAIT_OBJECT_0;
+        if (nTipoEvento == 0) {
+            //printf("Dps Wait writeAlarmMessage: %d\n", nTipoEvento);
 
-    writeMessage(alarm.getMessage().c_str());
+            SetEvent(hPEvent);
 
-    ReleaseSemaphore(hReadCircularList, 1, NULL);
-    ReleaseSemaphore(hWriteMutex, 1, NULL);
+            printf("writeAlarmMessage rolando\n");
+            WaitForSingleObject(hWriteMutex, NULL);
+            WaitForSingleObject(hWriteCircularList, NULL);
+
+            Messages::PIMSMessage alarm(alarmType);
+
+            writeMessage(alarm.getMessage().c_str());
+
+            ReleaseSemaphore(hReadCircularList, 1, NULL);
+            ReleaseSemaphore(hWriteMutex, 1, NULL);
+
+        }
+    } while (nTipoEvento == 0);
+
+    printf("Thread P terminando...\n");
 }
 
 void writeCriticalAlarmMessage() {
-    while (USER_INPUT != "ESC") {
-        writeAlarmMessage(CRITICAL_ALARM_TYPE);
-    }
+
+    writeAlarmMessage(CRITICAL_ALARM_TYPE);        
+    printf("Thread P Critico terminando...\n");
+    _endthreadex(0);
 }
 
 void writeNonCriticalAlarmMessage() {
-    while (USER_INPUT != "ESC") {
-        writeAlarmMessage(NON_CRITICAL_ALARM_TYPE);
-    }
+
+    writeAlarmMessage(NON_CRITICAL_ALARM_TYPE);
+    printf("Thread P Nao Critico terminando...\n");
+    _endthreadex(0);
+
 }
 
 void writeDataMessage() {
-    while (USER_INPUT != "ESC") {
-        WaitForSingleObject(hWriteMutex, NULL);
-        WaitForSingleObject(hWriteCircularList, NULL);
+    HANDLE Events[2] = { hSEvent, hEscEvent };
+    DWORD ret;
+    int nTipoEvento;
 
-        Messages::SDCDMessage data;
+    do {
+        Sleep(250);
+        ret = WaitForMultipleObjects(2, Events, FALSE, INFINITE);
+        nTipoEvento = ret - WAIT_OBJECT_0;
+        if (nTipoEvento == 0) {
+            SetEvent(hSEvent);
+            WaitForSingleObject(hWriteMutex, NULL);
+            WaitForSingleObject(hWriteCircularList, NULL);
 
-        writeMessage(data.getMessage().c_str());
+            Messages::SDCDMessage data;
 
-        ReleaseSemaphore(hReadCircularList, 1, NULL);
-        ReleaseSemaphore(hWriteMutex, 1, NULL);
-    }
+            writeMessage(data.getMessage().c_str());
+
+            ReleaseSemaphore(hReadCircularList, 1, NULL);
+            ReleaseSemaphore(hWriteMutex, 1, NULL);
+        }
+    } while (nTipoEvento == 0);
+    printf("Thread S terminando...\n");
+    _endthreadex(0);
 }
 
 
 void readKeyboard() {
     /*
     Function that reads the user's input. Available options:
-        s: Freezes/Unfreezes SDCD reading task - writeMessage
+        s: Freezes/Unfreezes SDCD reading task - writeDataMessage
         p: Freezes/Unfreezes PIMS reading task - writeAlarmMessage
         d: Freezes/Unfreezes data capture task - dataMessageCapture
         a: Freezes/Unfreezes alarm capture task - alarmMessageCapture
@@ -187,58 +244,94 @@ void readKeyboard() {
         c: Freezes/Unfreezes alarm exhibition task - ?
         ESC: Terminate all tasks
     */
-
-    // !!! Lembrar de checar por erro !!!
-    
-    // ESC should terminate all tasks, hence, it has automatic reset
-    hEscEvent = CreateEvent(NULL, TRUE, FALSE, "EventoEsc");
-    // The others have manual reset
-    hSEvent = CreateEvent(NULL, FALSE, FALSE, "EventoS");
-    hPEvent = CreateEvent(NULL, FALSE, FALSE, "EventoP");
-    hDEvent = CreateEvent(NULL, FALSE, FALSE, "EventoD");
-    hAEvent = CreateEvent(NULL, FALSE, FALSE, "EventoA");
-    hOEvent = CreateEvent(NULL, FALSE, FALSE, "EventoO");
-    hCEvent = CreateEvent(NULL, FALSE, FALSE, "EventoC");
-
+    int state[] = { 0, 0, 0, 0, 0, 0 };
     do {
-        cout << "Press a key" << endl;
+        std::cout << "Press a key" << endl;
         nTecla = _getch();
         switch (nTecla)
         {
         case S:
-            cout << "S" << endl;
-            PulseEvent(hSEvent);
+            if (state[0] == 0) {
+                std::cout << "S reset" << endl;
+                ResetEvent(hSEvent);
+                state[0] = 1;
+            }
+            else {
+                std::cout << "S set" << endl;
+                SetEvent(hSEvent);
+                state[0] = 0;
+            }
             break;
         case P:
-            cout << "P" << endl;
-            PulseEvent(hPEvent);
+            if (state[1] == 0) {
+                std::cout << "P reset" << endl;
+                ResetEvent(hPEvent);
+                state[1] = 1;
+            }
+            else {
+                std::cout << "P set" << endl;
+                SetEvent(hPEvent);
+                state[1] = 0;
+            }
             break;
         case D:
-            cout << "D" << endl;
-            PulseEvent(hDEvent);
+            if (state[2] == 0) {
+                std::cout << "D reset" << endl;
+                ResetEvent(hDEvent);
+                state[2] = 1;
+            }
+            else {
+                std::cout << "D set" << endl;
+                SetEvent(hDEvent);
+                state[2] = 0;
+            }
             break;
         case A:
-            cout << "A" << endl;
-            PulseEvent(hAEvent);
+            if (state[3] == 0) {
+                std::cout << "A reset" << endl;
+                ResetEvent(hAEvent);
+                state[3] = 1;
+            }
+            else {
+                std::cout << "A set" << endl;
+                SetEvent(hAEvent);
+                state[3] = 0;
+            }
             break;
         case O:
-            cout << "O" << endl;
-            PulseEvent(hOEvent);
+            if (state[4] == 0) {
+                std::cout << "O reset" << endl;
+                ResetEvent(hOEvent);
+                state[4] = 1;
+            }
+            else {
+                std::cout << "O set" << endl;
+                SetEvent(hOEvent);
+                state[4] = 0;
+            }
             break;
         case C:
-            cout << "C" << endl;
-            PulseEvent(hOEvent);
+            if (state[5] == 0) {
+                std::cout << "C reset" << endl;
+                ResetEvent(hCEvent);
+                state[5] = 1;
+            }
+            else {
+                std::cout << "C set" << endl;
+                SetEvent(hCEvent);
+                state[5] = 0;
+            }
             break;
         case ESC:
-            cout << "ESC" << endl;
-            PulseEvent(hEscEvent);
+            std::cout << "ESC" << endl;
+            SetEvent(hEscEvent);
             break;
         default:
-            cout << "Invalid key" << endl;
+            std::cout << "Invalid key" << endl;
             break;
         }
     } while (nTecla != ESC);
-    cout << "All tasks ended" << endl;
+    std::cout << "All tasks ended" << endl;
 
     // Waiting threads to end
     // dwRet = WaitForMultipleObjects(NUM_THREADS,hThreads,TRUE,INFINITE);
@@ -260,7 +353,6 @@ void createCircularListSemaphores(){
 
 int main()
 {
-    readKeyboard();
 
     char CRITICAL_ALARM_HANDLE_INDEX = 0;
     char NON_CRITICAL_ALARM_HANDLE_INDEX = 1;
@@ -276,6 +368,24 @@ int main()
     DWORD dwIdWriteData;
 
     HANDLE hThreads[ALARM_THREADS + DATA_THREADS];
+
+    // ESC should terminate all tasks, hence, it has automatic reset
+    hEscEvent = CreateEvent(NULL, TRUE, FALSE, "EventoEsc");
+    CheckForError(hEscEvent);
+
+    // The others have manual reset
+    hSEvent = CreateEvent(NULL, FALSE, TRUE, "EventoS");
+    CheckForError(hSEvent);
+    hPEvent = CreateEvent(NULL, FALSE, TRUE, "EventoP");
+    CheckForError(hPEvent);
+    hDEvent = CreateEvent(NULL, FALSE, TRUE, "EventoD");
+    CheckForError(hDEvent);
+    hAEvent = CreateEvent(NULL, FALSE, TRUE, "EventoA");
+    CheckForError(hAEvent);
+    hOEvent = CreateEvent(NULL, FALSE, TRUE, "EventoO");
+    CheckForError(hOEvent);
+    hCEvent = CreateEvent(NULL, FALSE, TRUE, "EventoC");
+    CheckForError(hCEvent);
 
 
     ZeroMemory(&alarmStartupInfo, sizeof(alarmStartupInfo));
@@ -335,6 +445,8 @@ int main()
         printf("Erro na criacao da thread Dados! N = %d Erro = %d\n", DATA_HANDLE_INDEX, errno);
         exit(0);
     }
+
+    readKeyboard();
 
     // Wait until child process exits.
     WaitForSingleObject(alarmProcessInfo.hProcess, INFINITE);
