@@ -14,13 +14,13 @@
 #include "Messages.h"
 #include "CheckForError.h"
 
-#define MESSAGE_TYPE_INDEX 6
+#define MESSAGE_TYPE_INDEX 7
 #define MAX_MESSAGES 100
 #define MESSAGE_SIZE 53
 #define CRITICAL_ALARM_TYPE 9
 #define NON_CRITICAL_ALARM_TYPE 2
-#define ALARM_THREADS 2
-#define DATA_THREADS 1
+#define ALARM_THREADS 3 //Two for creating messages, one for capturing messages
+#define DATA_THREADS 2 //One for creating messages, one for capturing messages
 
 typedef unsigned (WINAPI* CAST_FUNCTION)(LPVOID);	//Casting para terceiro e sexto par�metros da fun��o
                                                     //_beginthreadex
@@ -57,8 +57,8 @@ HANDLE hCEvent;
 DWORD dwRet;
 
 char circularList[MAX_MESSAGES][MESSAGE_SIZE];
-int readPosition;
-int writePosition;
+int readPosition = 0;
+int writePosition = 0;
 int nTecla;
 
 int crateProcessOnNewWindow(STARTUPINFO* startupInfo, PROCESS_INFORMATION* processInfo,LPCSTR filePath) {
@@ -80,8 +80,7 @@ int crateProcessOnNewWindow(STARTUPINFO* startupInfo, PROCESS_INFORMATION* proce
     return 0;
 }
 
-bool isAlarmMessage(char* message) {
-    char messageType = message[MESSAGE_TYPE_INDEX];
+bool isAlarmMessage(char messageType) {
     if (messageType == '2' || messageType == '9')
         return true;
     else 
@@ -104,11 +103,13 @@ void alarmMessageCapture() {
         nTipoEvento = ret - WAIT_OBJECT_0;
         if (nTipoEvento == 0) {
             SetEvent(hAEvent);
-            WaitForSingleObject(hReadMutex, NULL);
-            WaitForSingleObject(hReadCircularList, NULL);
-            if (isAlarmMessage(circularList[readPosition])) {
+            WaitForSingleObject(hReadMutex, INFINITE);
+            WaitForSingleObject(hReadCircularList, INFINITE);
+            if (isAlarmMessage(circularList[readPosition][MESSAGE_TYPE_INDEX])) {
                 strcpy(alarmMessage, circularList[readPosition]);
+                printf("Mensagem de ALARME capturada com sucesso: - ");
                 printf(alarmMessage);
+                printf("\n");
                 incrementReadPosition();
                 ReleaseSemaphore(hWriteCircularList, 1, NULL);
             }
@@ -134,19 +135,21 @@ void dataMessageCapture() {
         nTipoEvento = ret - WAIT_OBJECT_0;
 
         SetEvent(hDEvent);
-        WaitForSingleObject(hReadMutex, NULL);
-        WaitForSingleObject(hReadCircularList, NULL);
+        WaitForSingleObject(hReadMutex, INFINITE);
+        WaitForSingleObject(hReadCircularList, INFINITE);
 
-        if (!isAlarmMessage(circularList[readPosition])) {
+        if (!isAlarmMessage(circularList[readPosition][MESSAGE_TYPE_INDEX])) {
             strcpy(dataMessage, circularList[readPosition]);
+            printf("Mensagem de DADO capturada com sucesso: --- ");
             printf(dataMessage);
+            printf("\n");
             incrementReadPosition();
             ReleaseSemaphore(hWriteCircularList, 1, NULL);
         }
         else {
             ReleaseSemaphore(hReadCircularList, 1, NULL);
         }
-        
+        ReleaseSemaphore(hReadMutex, 1, NULL);        
     } while (nTipoEvento == 0);
     printf("Thread D terminando...\n");
 }
@@ -175,8 +178,8 @@ void writeAlarmMessage(int alarmType) {
             SetEvent(hPEvent);
 
             //printf("writeAlarmMessage rolando\n");
-            WaitForSingleObject(hWriteMutex, NULL);
-            WaitForSingleObject(hWriteCircularList, NULL);
+            WaitForSingleObject(hWriteMutex, INFINITE);
+            WaitForSingleObject(hWriteCircularList, INFINITE);
 
             Messages::PIMSMessage alarm(alarmType);
 
@@ -217,8 +220,8 @@ void writeDataMessage() {
         nTipoEvento = ret - WAIT_OBJECT_0;
         if (nTipoEvento == 0) {
             SetEvent(hSEvent);
-            WaitForSingleObject(hWriteMutex, NULL);
-            WaitForSingleObject(hWriteCircularList, NULL);
+            WaitForSingleObject(hWriteMutex, INFINITE);
+            WaitForSingleObject(hWriteCircularList, INFINITE);
 
             Messages::SDCDMessage data;
 
@@ -232,6 +235,15 @@ void writeDataMessage() {
     _endthreadex(0);
 }
 
+void closeAllKeyboardHandles() {
+    CloseHandle(hEscEvent);
+    CloseHandle(hSEvent);
+    CloseHandle(hPEvent);
+    CloseHandle(hDEvent);
+    CloseHandle(hAEvent);
+    CloseHandle(hOEvent);
+    CloseHandle(hCEvent);
+}
 
 void readKeyboard() {
     /*
@@ -246,78 +258,78 @@ void readKeyboard() {
     */
     int state[] = { 0, 0, 0, 0, 0, 0 };
     do {
-        std::cout << "Press a key" << endl;
+        std::cout << "Press a key\n" << endl;
         nTecla = _getch();
         switch (nTecla)
         {
         case S:
             if (state[0] == 0) {
-                std::cout << "S reset - Tarefa de leitura do SDCD bloqueada!" << endl;
+                std::cout << "S reset - Tarefa de leitura do SDCD bloqueada!\n" << endl;
                 ResetEvent(hSEvent);
                 state[0] = 1;
             }
             else {
-                std::cout << "S set - Tarefa de leitura do SDCD desbloqueada!" << endl;
+                std::cout << "S set - Tarefa de leitura do SDCD desbloqueada!\n" << endl;
                 SetEvent(hSEvent);
                 state[0] = 0;
             }
             break;
         case P:
             if (state[1] == 0) {
-                std::cout << "P reset - Tarefa de leitura do PIMS bloqueada!" << endl;
+                std::cout << "P reset - Tarefa de leitura do PIMS bloqueada!\n" << endl;
                 ResetEvent(hPEvent);
                 state[1] = 1;
             }
             else {
-                std::cout << "P set - Tarefa de leitura do SDCD desbloqueada!" << endl;
+                std::cout << "P set - Tarefa de leitura do SDCD desbloqueada!\n" << endl;
                 SetEvent(hPEvent);
                 state[1] = 0;
             }
             break;
         case D:
             if (state[2] == 0) {
-                std::cout << "D reset - Tarefa de captura de dados do processo bloaqueada!" << endl;
+                std::cout << "D reset - Tarefa de captura de dados do processo bloaqueada!\n" << endl;
                 ResetEvent(hDEvent);
                 state[2] = 1;
             }
             else {
-                std::cout << "D set - Tarefa de captura de dados do processo desbloaqueada!" << endl;
+                std::cout << "D set - Tarefa de captura de dados do processo desbloaqueada!\n" << endl;
                 SetEvent(hDEvent);
                 state[2] = 0;
             }
             break;
         case A:
             if (state[3] == 0) {
-                std::cout << "A reset - Tarefa de captura de dados de alarmes bloaqueada!" << endl;
+                std::cout << "A reset - Tarefa de captura de dados de alarmes bloaqueada!\n" << endl;
                 ResetEvent(hAEvent);
                 state[3] = 1;
             }
             else {
-                std::cout << "A set - Tarefa de captura de dados de alarmes desbloaqueada!" << endl;
+                std::cout << "A set - Tarefa de captura de dados de alarmes desbloaqueada!\n" << endl;
                 SetEvent(hAEvent);
                 state[3] = 0;
             }
             break;
         case O:
             if (state[4] == 0) {
-                std::cout << "O reset" << endl;
+                std::cout << "O reset\n" << endl;
                 ResetEvent(hOEvent);
                 state[4] = 1;
             }
             else {
-                std::cout << "O set" << endl;
+                std::cout << "O set\n" << endl;
                 SetEvent(hOEvent);
                 state[4] = 0;
             }
             break;
         case C:
             if (state[5] == 0) {
-                std::cout << "C reset" << endl;
+                std::cout << "C reset\n" << endl;
                 ResetEvent(hCEvent);
                 state[5] = 1;
             }
             else {
-                std::cout << "C set" << endl;
+                std::cout << "C set\n" << endl;
                 SetEvent(hCEvent);
                 state[5] = 0;
             }
@@ -331,13 +343,11 @@ void readKeyboard() {
             break;
         }
     } while (nTecla != ESC);
-    std::cout << "All tasks ended" << endl;
 
     // Waiting threads to end
     // dwRet = WaitForMultipleObjects(NUM_THREADS,hThreads,TRUE,INFINITE);
-    dwRet = WaitForMultipleObjects(0, 0, TRUE, INFINITE);
     //CheckForError(dwRet == WAIT_OBJECT_0);
-    CloseHandle(hEscEvent);
+    closeAllKeyboardHandles();
 }
 
 void createCircularListSemaphores(){
@@ -351,12 +361,33 @@ void createCircularListSemaphores(){
     CheckForError(hWriteMutex);
 }
 
+void closeSemaphoresHandles() {
+    CloseHandle(hReadCircularList);
+    CloseHandle(hWriteCircularList);
+    CloseHandle(hReadMutex);
+    CloseHandle(hWriteMutex);
+}
+
+HANDLE createThreadFromHandle(_beginthreadex_proc_type castedFunction, unsigned int* threadAddr) {
+    HANDLE hThread =
+        (HANDLE)_beginthreadex(
+            NULL,
+            0,
+            castedFunction,
+            (LPVOID)0,
+            0,
+            threadAddr);
+    return hThread;
+}
+
 int main()
 {
 
-    char CRITICAL_ALARM_HANDLE_INDEX = 0;
-    char NON_CRITICAL_ALARM_HANDLE_INDEX = 1;
-    char DATA_HANDLE_INDEX = 2;
+    char CRITICAL_ALARM_WRITER_INDEX = 0;
+    char NON_CRITICAL_ALARM_WRITER_INDEX = 1;
+    char DATA_WRITER_INDEX = 2;
+    char ALARM_CAPTURE_INDEX = 3;
+    char DATA_CAPTURE_INDEX = 4;
 
     STARTUPINFO alarmStartupInfo;
     STARTUPINFO dataStartupInfo;
@@ -366,6 +397,8 @@ int main()
     DWORD dwIdWriteCriticalAlarm;
     DWORD dwIdWriteNonCriticalAlarm;
     DWORD dwIdWriteData;
+    DWORD dwIdCaptureData;
+    DWORD dwIdCaptureAlarm;
 
     HANDLE hThreads[ALARM_THREADS + DATA_THREADS];
 
@@ -401,48 +434,55 @@ int main()
 
     createCircularListSemaphores();
 
-    hThreads[CRITICAL_ALARM_HANDLE_INDEX] = 
-        (HANDLE)_beginthreadex(
-                NULL,
-                0,
-                (CAST_FUNCTION)writeCriticalAlarmMessage,
-                (LPVOID)0,
-                0,
-                (CAST_LPDWORD)&dwIdWriteCriticalAlarm);
-    if (hThreads[CRITICAL_ALARM_HANDLE_INDEX])
+    hThreads[CRITICAL_ALARM_WRITER_INDEX] = createThreadFromHandle(
+        (CAST_FUNCTION)writeCriticalAlarmMessage,
+        (CAST_LPDWORD)&dwIdWriteCriticalAlarm);
+
+    if (hThreads[CRITICAL_ALARM_WRITER_INDEX])
         printf("Thread Alarme crítico criada com sucesso! Id=%0x\n", dwIdWriteCriticalAlarm);
     else {
-        printf("Erro na criacao da thread Alarme crítico! N = %d Erro = %d\n", CRITICAL_ALARM_HANDLE_INDEX, errno);
+        printf("Erro na criacao da thread Alarme crítico! N = %d Erro = %d\n", CRITICAL_ALARM_WRITER_INDEX, errno);
         exit(0);
     }
-
-    hThreads[NON_CRITICAL_ALARM_HANDLE_INDEX] =
-        (HANDLE)_beginthreadex(
-            NULL,
-            0,
+    hThreads[NON_CRITICAL_ALARM_WRITER_INDEX] = createThreadFromHandle(
             (CAST_FUNCTION)writeNonCriticalAlarmMessage,
-            (LPVOID)0,
-            0,
             (CAST_LPDWORD)&dwIdWriteNonCriticalAlarm);
-    if (hThreads[NON_CRITICAL_ALARM_HANDLE_INDEX])
+
+    if (hThreads[NON_CRITICAL_ALARM_WRITER_INDEX])
         printf("Thread Alarme não crítico criada com sucesso! Id=%0x\n", dwIdWriteNonCriticalAlarm);
     else {
-        printf("Erro na criacao da thread Alarme não crítico! N = %d Erro = %d\n", NON_CRITICAL_ALARM_HANDLE_INDEX, errno);
+        printf("Erro na criacao da thread Alarme não crítico! N = %d Erro = %d\n", NON_CRITICAL_ALARM_WRITER_INDEX, errno);
+        exit(0);
+    }
+    hThreads[DATA_WRITER_INDEX] = createThreadFromHandle(
+            (CAST_FUNCTION)writeDataMessage,
+            (CAST_LPDWORD)&dwIdWriteData);
+
+    if (hThreads[DATA_WRITER_INDEX])
+        printf("Thread Dados criada com sucesso! Id=%0x\n", dwIdWriteData);
+    else {
+        printf("Erro na criacao da thread Dados! N = %d Erro = %d\n", DATA_WRITER_INDEX, errno);
+        exit(0);
+    }
+    hThreads[ALARM_CAPTURE_INDEX] = createThreadFromHandle(
+            (CAST_FUNCTION)alarmMessageCapture,
+            (CAST_LPDWORD)&dwIdCaptureAlarm);
+
+    if (hThreads[ALARM_CAPTURE_INDEX])
+        printf("Thread Dados criada com sucesso! Id=%0x\n", dwIdCaptureAlarm);
+    else {
+        printf("Erro na criacao da thread Dados! N = %d Erro = %d\n", ALARM_CAPTURE_INDEX, errno);
         exit(0);
     }
 
-    hThreads[DATA_HANDLE_INDEX] =
-        (HANDLE)_beginthreadex(
-            NULL,
-            0,
-            (CAST_FUNCTION)writeDataMessage,
-            (LPVOID)0,
-            0,
-            (CAST_LPDWORD)&dwIdWriteData);
-    if (hThreads[DATA_HANDLE_INDEX])
-        printf("Thread Dados criada com sucesso! Id=%0x\n", dwIdWriteData);
+    hThreads[DATA_CAPTURE_INDEX] = createThreadFromHandle(
+        (CAST_FUNCTION)dataMessageCapture,
+        (CAST_LPDWORD)&dwIdCaptureData);
+
+    if (hThreads[ALARM_CAPTURE_INDEX])
+        printf("Thread Dados criada com sucesso! Id=%0x\n", dwIdCaptureData);
     else {
-        printf("Erro na criacao da thread Dados! N = %d Erro = %d\n", DATA_HANDLE_INDEX, errno);
+        printf("Erro na criacao da thread Dados! N = %d Erro = %d\n", ALARM_CAPTURE_INDEX, errno);
         exit(0);
     }
 
@@ -457,6 +497,19 @@ int main()
     CloseHandle(dataProcessInfo.hProcess);
     CloseHandle(alarmProcessInfo.hThread);
     CloseHandle(dataProcessInfo.hThread);
+    int threadSize = ALARM_THREADS + DATA_THREADS;
+    int i;
+    DWORD dwExitCode;
+    closeSemaphoresHandles();
+    for (i = 0; i < threadSize; ++i) {
+        dwRet = WaitForSingleObject(hThreads[i], INFINITE);
+        CheckForError(dwRet == WAIT_OBJECT_0);
+
+        GetExitCodeThread(hThreads[i], &dwExitCode);
+        printf("thread %d terminou com codigo de saida %d\n", i, dwExitCode);
+        CloseHandle(hThreads[i]);    // apaga referência ao objeto
+    }
+    std::cout << "All tasks ended, press ENTER to exit" << endl;
     getchar();
     return 0;
 }

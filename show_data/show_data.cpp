@@ -34,6 +34,5 @@ int main() {
 	} while (retEsc != 0);
 
 	printf("Thread O terminando...\n");
-	char x;
-	std::cin >> x;
+	return 0;
 }
