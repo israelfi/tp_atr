@@ -114,9 +114,7 @@ void alarmMessageCapture() {
             }
             strcpy(alarmMessage, circularList[alarmReadPosition]);
             ReleaseSemaphore(hWriteCircularList, 1, NULL);
-            printf("Mensagem de ALARME capturada com sucesso: - ");
-            printf(alarmMessage);
-            printf("\n");
+            printf("Mensagem de ALARME capturada com sucesso: - %s\n", alarmMessage);
             incrementAlarmReadPosition();
         }
     } while (nTipoEvento == 0);
@@ -142,9 +140,7 @@ void dataMessageCapture() {
         }
         strcpy(dataMessage, circularList[dataReadPosition]);
         ReleaseSemaphore(hWriteCircularList, 1, NULL);
-        printf("Mensagem de DADO capturada com sucesso: --- ");
-        printf(dataMessage);
-        printf("\n");
+        printf("Mensagem de DADO capturada com sucesso: --- %s\n", dataMessage);
         incrementDataReadPosition();
     } while (nTipoEvento == 0);
     printf("Thread D terminando...\n");
