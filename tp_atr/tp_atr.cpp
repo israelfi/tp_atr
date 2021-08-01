@@ -109,16 +109,14 @@ void alarmMessageCapture() {
         if (nTipoEvento == 0) {
             SetEvent(hAEvent);
             WaitForSingleObject(hReadAlarmCircularList, INFINITE);
-            if (isAlarmMessage(circularList[alarmReadPosition][MESSAGE_TYPE_INDEX])) {
-                strcpy(alarmMessage, circularList[alarmReadPosition]);
-                printf("Mensagem de ALARME capturada com sucesso: - ");
-                printf(alarmMessage);
-                printf("\n");
-                ReleaseSemaphore(hWriteCircularList, 1, NULL);
+            while (!isAlarmMessage(circularList[alarmReadPosition][MESSAGE_TYPE_INDEX])) {
+                incrementAlarmReadPosition();
             }
-            else {
-                ReleaseSemaphore(hReadAlarmCircularList, 1, NULL);
-            }
+            strcpy(alarmMessage, circularList[alarmReadPosition]);
+            ReleaseSemaphore(hWriteCircularList, 1, NULL);
+            printf("Mensagem de ALARME capturada com sucesso: - ");
+            printf(alarmMessage);
+            printf("\n");
             incrementAlarmReadPosition();
         }
     } while (nTipoEvento == 0);
@@ -139,17 +137,14 @@ void dataMessageCapture() {
 
         SetEvent(hDEvent);
         WaitForSingleObject(hReadDataCircularList, INFINITE);
-
-        if (!isAlarmMessage(circularList[dataReadPosition][MESSAGE_TYPE_INDEX])) {
-            strcpy(dataMessage, circularList[dataReadPosition]);
-            printf("Mensagem de DADO capturada com sucesso: --- ");
-            printf(dataMessage);
-            printf("\n");
-            ReleaseSemaphore(hWriteCircularList, 1, NULL);
+        while (isAlarmMessage(circularList[dataReadPosition][MESSAGE_TYPE_INDEX])) {
+            incrementDataReadPosition();
         }
-        else {
-            ReleaseSemaphore(hReadDataCircularList, 1, NULL);
-        } 
+        strcpy(dataMessage, circularList[dataReadPosition]);
+        ReleaseSemaphore(hWriteCircularList, 1, NULL);
+        printf("Mensagem de DADO capturada com sucesso: --- ");
+        printf(dataMessage);
+        printf("\n");
         incrementDataReadPosition();
     } while (nTipoEvento == 0);
     printf("Thread D terminando...\n");
