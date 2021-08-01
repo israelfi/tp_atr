@@ -40,9 +40,9 @@ using namespace std;
 using namespace Messages;
 
 string USER_INPUT;
-HANDLE hReadCircularList;
+HANDLE hReadDataCircularList;
+HANDLE hReadAlarmCircularList;
 HANDLE hWriteCircularList;
-HANDLE hReadMutex;
 HANDLE hWriteMutex;
 
 // Events regarding the keyboard input
@@ -57,7 +57,8 @@ HANDLE hCEvent;
 DWORD dwRet;
 
 char circularList[MAX_MESSAGES][MESSAGE_SIZE];
-int readPosition = 0;
+int dataReadPosition = 0;
+int alarmReadPosition = 0;
 int writePosition = 0;
 int nTecla;
 
@@ -87,8 +88,12 @@ bool isAlarmMessage(char messageType) {
         return false;
 }
 
-void incrementReadPosition() {
-    readPosition = (readPosition + 1) % MAX_MESSAGES;
+void incrementAlarmReadPosition() {
+    alarmReadPosition = (alarmReadPosition + 1) % MAX_MESSAGES;
+}
+
+void incrementDataReadPosition() {
+    dataReadPosition = (dataReadPosition + 1) % MAX_MESSAGES;
 }
 
 void alarmMessageCapture() {
@@ -103,20 +108,18 @@ void alarmMessageCapture() {
         nTipoEvento = ret - WAIT_OBJECT_0;
         if (nTipoEvento == 0) {
             SetEvent(hAEvent);
-            WaitForSingleObject(hReadMutex, INFINITE);
-            WaitForSingleObject(hReadCircularList, INFINITE);
-            if (isAlarmMessage(circularList[readPosition][MESSAGE_TYPE_INDEX])) {
-                strcpy(alarmMessage, circularList[readPosition]);
+            WaitForSingleObject(hReadAlarmCircularList, INFINITE);
+            if (isAlarmMessage(circularList[alarmReadPosition][MESSAGE_TYPE_INDEX])) {
+                strcpy(alarmMessage, circularList[alarmReadPosition]);
                 printf("Mensagem de ALARME capturada com sucesso: - ");
                 printf(alarmMessage);
                 printf("\n");
-                incrementReadPosition();
                 ReleaseSemaphore(hWriteCircularList, 1, NULL);
             }
             else {
-                ReleaseSemaphore(hReadCircularList, 1, NULL);
+                ReleaseSemaphore(hReadAlarmCircularList, 1, NULL);
             }
-            ReleaseSemaphore(hReadMutex, 1, NULL);
+            incrementAlarmReadPosition();
         }
     } while (nTipoEvento == 0);
     printf("Thread A terminando...\n");
@@ -135,21 +138,19 @@ void dataMessageCapture() {
         nTipoEvento = ret - WAIT_OBJECT_0;
 
         SetEvent(hDEvent);
-        WaitForSingleObject(hReadMutex, INFINITE);
-        WaitForSingleObject(hReadCircularList, INFINITE);
+        WaitForSingleObject(hReadDataCircularList, INFINITE);
 
-        if (!isAlarmMessage(circularList[readPosition][MESSAGE_TYPE_INDEX])) {
-            strcpy(dataMessage, circularList[readPosition]);
+        if (!isAlarmMessage(circularList[dataReadPosition][MESSAGE_TYPE_INDEX])) {
+            strcpy(dataMessage, circularList[dataReadPosition]);
             printf("Mensagem de DADO capturada com sucesso: --- ");
             printf(dataMessage);
             printf("\n");
-            incrementReadPosition();
             ReleaseSemaphore(hWriteCircularList, 1, NULL);
         }
         else {
-            ReleaseSemaphore(hReadCircularList, 1, NULL);
-        }
-        ReleaseSemaphore(hReadMutex, 1, NULL);        
+            ReleaseSemaphore(hReadDataCircularList, 1, NULL);
+        } 
+        incrementDataReadPosition();
     } while (nTipoEvento == 0);
     printf("Thread D terminando...\n");
 }
@@ -185,7 +186,7 @@ void writeAlarmMessage(int alarmType) {
 
             writeMessage(alarm.getMessage().c_str());
 
-            ReleaseSemaphore(hReadCircularList, 1, NULL);
+            ReleaseSemaphore(hReadAlarmCircularList, 1, NULL);
             ReleaseSemaphore(hWriteMutex, 1, NULL);
 
         }
@@ -227,7 +228,7 @@ void writeDataMessage() {
 
             writeMessage(data.getMessage().c_str());
 
-            ReleaseSemaphore(hReadCircularList, 1, NULL);
+            ReleaseSemaphore(hReadDataCircularList, 1, NULL);
             ReleaseSemaphore(hWriteMutex, 1, NULL);
         }
     } while (nTipoEvento == 0);
@@ -351,20 +352,19 @@ void readKeyboard() {
 }
 
 void createCircularListSemaphores(){
-    hReadCircularList = CreateSemaphore(NULL, 0, MAX_MESSAGES,"Readers semaphore");
-    CheckForError(hReadCircularList);
+    hReadDataCircularList = CreateSemaphore(NULL, 0, MAX_MESSAGES, "Data reader semaphore");
+    CheckForError(hReadDataCircularList);
+    hReadAlarmCircularList = CreateSemaphore(NULL, 0, MAX_MESSAGES, "Alarm readers semaphore");
+    CheckForError(hReadAlarmCircularList);
     hWriteCircularList = CreateSemaphore(NULL, MAX_MESSAGES, MAX_MESSAGES, "Writers semaphore");
     CheckForError(hWriteCircularList);
-    hReadMutex = CreateSemaphore(NULL, 1, 1, "Readers mutex");
-    CheckForError(hReadMutex);
     hWriteMutex = CreateSemaphore(NULL, 1, 1, "Writers mutex");
     CheckForError(hWriteMutex);
 }
 
 void closeSemaphoresHandles() {
-    CloseHandle(hReadCircularList);
+    CloseHandle(hReadDataCircularList);
     CloseHandle(hWriteCircularList);
-    CloseHandle(hReadMutex);
     CloseHandle(hWriteMutex);
 }
 
