@@ -245,6 +245,7 @@ void readKeyboard() {
     dwRet = WaitForMultipleObjects(0, 0, TRUE, INFINITE);
     //CheckForError(dwRet == WAIT_OBJECT_0);
     CloseHandle(hEscEvent);
+}
 
 void createCircularListSemaphores(){
     hReadCircularList = CreateSemaphore(NULL, 0, MAX_MESSAGES,"Readers semaphore");
