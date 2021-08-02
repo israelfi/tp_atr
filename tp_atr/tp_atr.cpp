@@ -280,24 +280,24 @@ void readKeyboard() {
             break;
         case D:
             if (state[2] == 0) {
-                std::cout << "D reset - Tarefa de captura de dados do processo bloaqueada!\n" << endl;
+                std::cout << "D reset - Tarefa de captura de dados do processo bloqueada!\n" << endl;
                 ResetEvent(hDEvent);
                 state[2] = 1;
             }
             else {
-                std::cout << "D set - Tarefa de captura de dados do processo desbloaqueada!\n" << endl;
+                std::cout << "D set - Tarefa de captura de dados do processo desbloqueada!\n" << endl;
                 SetEvent(hDEvent);
                 state[2] = 0;
             }
             break;
         case A:
             if (state[3] == 0) {
-                std::cout << "A reset - Tarefa de captura de dados de alarmes bloaqueada!\n" << endl;
+                std::cout << "A reset - Tarefa de captura de dados de alarmes bloqueada!\n" << endl;
                 ResetEvent(hAEvent);
                 state[3] = 1;
             }
             else {
-                std::cout << "A set - Tarefa de captura de dados de alarmes desbloaqueada!\n" << endl;
+                std::cout << "A set - Tarefa de captura de dados de alarmes desbloqueada!\n" << endl;
                 SetEvent(hAEvent);
                 state[3] = 0;
             }
