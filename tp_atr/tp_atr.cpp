@@ -289,7 +289,7 @@ void readKeyboard() {
                 state[1] = 1;
             }
             else {
-                std::cout << "P set - Tarefa de leitura do SDCD desbloqueada!\n" << endl;
+                std::cout << "P set - Tarefa de leitura do PIMS desbloqueada!\n" << endl;
                 SetEvent(hPEvent);
                 state[1] = 0;
             }
