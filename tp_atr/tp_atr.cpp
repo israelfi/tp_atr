@@ -88,6 +88,13 @@ bool isAlarmMessage(char messageType) {
         return false;
 }
 
+bool isDataMessage(char messageType) {
+    if (messageType == '1')
+        return true;
+    else 
+        return false;
+}
+
 void incrementAlarmReadPosition() {
     alarmReadPosition = (alarmReadPosition + 1) % MAX_MESSAGES;
 }
@@ -109,10 +116,11 @@ void alarmMessageCapture() {
         if (nTipoEvento == 0) {
             SetEvent(hAEvent);
             WaitForSingleObject(hReadAlarmCircularList, INFINITE);
-            while (!isAlarmMessage(circularList[alarmReadPosition][MESSAGE_TYPE_INDEX])) {
+            while (isDataMessage(circularList[alarmReadPosition][MESSAGE_TYPE_INDEX])) {
                 incrementAlarmReadPosition();
             }
             strcpy(alarmMessage, circularList[alarmReadPosition]);
+            strcpy(circularList[alarmReadPosition],"");
             ReleaseSemaphore(hWriteCircularList, 1, NULL);
             printf("Mensagem de ALARME capturada com sucesso: - %s\n", alarmMessage);
             incrementAlarmReadPosition();
@@ -139,6 +147,7 @@ void dataMessageCapture() {
             incrementDataReadPosition();
         }
         strcpy(dataMessage, circularList[dataReadPosition]);
+        strcpy(circularList[dataReadPosition],"");
         ReleaseSemaphore(hWriteCircularList, 1, NULL);
         printf("Mensagem de DADO capturada com sucesso: --- %s\n", dataMessage);
         incrementDataReadPosition();
@@ -150,7 +159,16 @@ void incrementWritePosition() {
     writePosition = (writePosition + 1) % MAX_MESSAGES;
 }
 
+bool isPositionEmpty(int position) {
+    bool teste = (circularList[position][0] == '\0');
+    return (circularList[position][0] == '\0');
+}
+
 void writeMessage(const char* message) {
+    if (!isPositionEmpty(writePosition)) {
+        printf("! WARNING --- No writing positions available\n");
+        while (!isPositionEmpty(writePosition)) {}
+    }
     strcpy(circularList[writePosition], message);
     incrementWritePosition();
 }
@@ -165,11 +183,9 @@ void writeAlarmMessage(int alarmType) {
         ret = WaitForMultipleObjects(2, Events, FALSE, INFINITE);
         nTipoEvento = ret - WAIT_OBJECT_0;
         if (nTipoEvento == 0) {
-            //printf("Dps Wait writeAlarmMessage: %d\n", nTipoEvento);
 
             SetEvent(hPEvent);
 
-            //printf("writeAlarmMessage rolando\n");
             WaitForSingleObject(hWriteMutex, INFINITE);
             WaitForSingleObject(hWriteCircularList, INFINITE);
 
@@ -373,6 +389,10 @@ HANDLE createThreadFromHandle(_beginthreadex_proc_type castedFunction, unsigned 
 
 int main()
 {
+    int i;
+    for (i = 0; i < MAX_MESSAGES; i++) {
+        strcpy(circularList[i] , "");
+    }
 
     char CRITICAL_ALARM_WRITER_INDEX = 0;
     char NON_CRITICAL_ALARM_WRITER_INDEX = 1;
@@ -489,7 +509,6 @@ int main()
     CloseHandle(alarmProcessInfo.hThread);
     CloseHandle(dataProcessInfo.hThread);
     int threadSize = ALARM_THREADS + DATA_THREADS;
-    int i;
     DWORD dwExitCode;
     closeSemaphoresHandles();
     for (i = 0; i < threadSize; ++i) {
