@@ -21,6 +21,11 @@
 #define NON_CRITICAL_ALARM_TYPE 2
 #define ALARM_THREADS 3 //Two for creating messages, one for capturing messages
 #define DATA_THREADS 2 //One for creating messages, one for capturing messages
+#define MIN_NON_CRIT_ALARM_PERIOD 1000
+#define MAX_NON_CRIT_ALARM_PERIOD 5000
+#define MIN_CRIT_ALARM_PERIOD 3000
+#define MAX_CRIT_ALARM_PERIOD 8000
+#define DATA_PERIOD 500
 
 typedef unsigned (WINAPI* CAST_FUNCTION)(LPVOID);	//Casting para terceiro e sexto par�metros da fun��o
                                                     //_beginthreadex
@@ -53,6 +58,9 @@ HANDLE hDEvent;
 HANDLE hAEvent;
 HANDLE hOEvent;
 HANDLE hCEvent;
+HANDLE hWroteCriticalAlarm;
+HANDLE hWroteNonCriticalAlarm;
+HANDLE hWroteData;
 
 DWORD dwRet;
 
@@ -137,11 +145,9 @@ void dataMessageCapture() {
     int nTipoEvento;
 
     do {
-        Sleep(250);
         ret = WaitForMultipleObjects(2, Events, FALSE, INFINITE);
         nTipoEvento = ret - WAIT_OBJECT_0;
 
-        SetEvent(hDEvent);
         WaitForSingleObject(hReadDataCircularList, INFINITE);
         while (isAlarmMessage(circularList[dataReadPosition][MESSAGE_TYPE_INDEX])) {
             incrementDataReadPosition();
@@ -165,80 +171,174 @@ bool isPositionEmpty(int position) {
 }
 
 void writeMessage(const char* message) {
-    if (!isPositionEmpty(writePosition)) {
-        printf("! WARNING --- No writing positions available\n");
-        while (!isPositionEmpty(writePosition)) {}
+    int startingPosition = writePosition;
+    while (!isPositionEmpty(writePosition)) {
+        incrementWritePosition();
+        if (startingPosition == writePosition)
+        {
+            printf("WARNING: Message list full\n");
+        }
     }
     strcpy(circularList[writePosition], message);
     incrementWritePosition();
 }
 
-void writeAlarmMessage(int alarmType) {
+void CALLBACK writeAlarmMessage(int &alarmType, BOOLEAN TimerOrWaitFired) {
+
+    WaitForSingleObject(hWriteMutex, INFINITE);
+    WaitForSingleObject(hWriteCircularList, INFINITE);
+
+    Messages::PIMSMessage alarm(alarmType);
+
+    writeMessage(alarm.getMessage().c_str());
+
+    ReleaseSemaphore(hReadAlarmCircularList, 1, NULL);
+    ReleaseSemaphore(hWriteMutex, 1, NULL);
+    if (alarmType == CRITICAL_ALARM_TYPE) {
+        SetEvent(hWroteCriticalAlarm);
+    }
+    else {
+        SetEvent(hWroteNonCriticalAlarm);
+    }
+}
+
+void CALLBACK writeDataMessage(BOOLEAN isBlocked, BOOLEAN TimerOrWaitFired) {
+    if (!isBlocked) {
+        WaitForSingleObject(hWriteMutex, INFINITE);
+        WaitForSingleObject(hWriteCircularList, INFINITE);
+
+        Messages::SDCDMessage data;
+
+        writeMessage(data.getMessage().c_str());
+
+        ReleaseSemaphore(hReadDataCircularList, 1, NULL);
+        ReleaseSemaphore(hWriteMutex, 1, NULL);
+        SetEvent(hWroteData);
+    }
+}
+
+ULONG getRandomNumberInRange(DWORD min, DWORD max) {
+    if(min == max || min > max)
+    {
+        return min;
+    }
+    int result = rand() % (max - min) + min;
+    return result;
+}
+
+void writePeriodicAlarmMessages(int alarmType, DWORD minPeriodRangeInMilliseconds, DWORD maxPeriodRangeInMilliseconds) {
     HANDLE Events[2] = { hPEvent, hEscEvent };
     DWORD ret;
     int nTipoEvento;
+    HANDLE hAlarmTimer = NULL;
+    HANDLE hAlarmTimerQueue = NULL;
+
+    hAlarmTimerQueue = CreateTimerQueue();
+    if (NULL == hAlarmTimerQueue)
+    {
+        printf("CreateTimerQueue failed (%d)\n", GetLastError());
+        return;
+    }
+
+    if (!CreateTimerQueueTimer(&hAlarmTimer, hAlarmTimerQueue,
+        (WAITORTIMERCALLBACK)writeAlarmMessage, &alarmType, minPeriodRangeInMilliseconds, minPeriodRangeInMilliseconds, 0))
+    {
+        printf("CreateTimerQueueTimer failed (%d)\n", GetLastError());
+        return;
+    }
 
     do {
-        Sleep(250);
+        if (alarmType == CRITICAL_ALARM_TYPE) {
+            if (WaitForSingleObject(hWroteCriticalAlarm, INFINITE) != WAIT_OBJECT_0) {
+                printf("Wait for hWroteCriticalAlarm failed (%d)\n", GetLastError());
+            }
+        }
+        else {
+            if (WaitForSingleObject(hWroteNonCriticalAlarm, INFINITE) != WAIT_OBJECT_0) {
+                printf("Wait for hWroteNonCriticalAlarm failed (%d)\n", GetLastError());
+            }
+        }
         ret = WaitForMultipleObjects(2, Events, FALSE, INFINITE);
         nTipoEvento = ret - WAIT_OBJECT_0;
         if (nTipoEvento == 0) {
-
-            SetEvent(hPEvent);
-
-            WaitForSingleObject(hWriteMutex, INFINITE);
-            WaitForSingleObject(hWriteCircularList, INFINITE);
-
-            Messages::PIMSMessage alarm(alarmType);
-
-            writeMessage(alarm.getMessage().c_str());
-
-            ReleaseSemaphore(hReadAlarmCircularList, 1, NULL);
-            ReleaseSemaphore(hWriteMutex, 1, NULL);
-
+            if (!ChangeTimerQueueTimer(
+                hAlarmTimerQueue,
+                hAlarmTimer,
+                getRandomNumberInRange(minPeriodRangeInMilliseconds, maxPeriodRangeInMilliseconds),
+                INFINITE
+            )) 
+            {
+                printf("ChangeTimerQueue failed (%d)\n", GetLastError());
+                break;
+            }
         }
     } while (nTipoEvento == 0);
+    if (!DeleteTimerQueueEx(
+        hAlarmTimerQueue,
+        NULL))
+    {
+        printf("Delete TimerQueue failed (%d)\n", GetLastError());
+    }
 
     printf("Thread P terminando...\n");
 }
 
-void writeCriticalAlarmMessage() {
+void writeCriticalAlarmMessages() {
 
-    writeAlarmMessage(CRITICAL_ALARM_TYPE);        
+    writePeriodicAlarmMessages(CRITICAL_ALARM_TYPE,MIN_CRIT_ALARM_PERIOD,MAX_CRIT_ALARM_PERIOD);        
     printf("Thread P Critico terminando...\n");
     _endthreadex(0);
 }
 
-void writeNonCriticalAlarmMessage() {
+void writeNonCriticalAlarmMessages() {
 
-    writeAlarmMessage(NON_CRITICAL_ALARM_TYPE);
+    writePeriodicAlarmMessages(NON_CRITICAL_ALARM_TYPE,MIN_NON_CRIT_ALARM_PERIOD,MAX_NON_CRIT_ALARM_PERIOD);
     printf("Thread P Nao Critico terminando...\n");
     _endthreadex(0);
 
 }
 
-void writeDataMessage() {
+void writePeriodicDataMessages() {
     HANDLE Events[2] = { hSEvent, hEscEvent };
     DWORD ret;
     int nTipoEvento;
+    HANDLE hDataTimer = NULL;
+    HANDLE hDataTimerQueue = NULL;
+
+    hDataTimerQueue = CreateTimerQueue();
+    if (NULL == hDataTimerQueue)
+    {
+        printf("CreateTimerQueue failed (%d)\n", GetLastError());
+        return;
+    }
+
+    if (!CreateTimerQueueTimer(&hDataTimer, hDataTimerQueue,
+        (WAITORTIMERCALLBACK)writeDataMessage, NULL, DATA_PERIOD, 0, 0))
+    {
+        printf("CreateTimerQueueTimer failed (%d)\n", GetLastError());
+        return;
+    }
 
     do {
-        Sleep(250);
         ret = WaitForMultipleObjects(2, Events, FALSE, INFINITE);
         nTipoEvento = ret - WAIT_OBJECT_0;
-        if (nTipoEvento == 0) {
-            SetEvent(hSEvent);
-            WaitForSingleObject(hWriteMutex, INFINITE);
-            WaitForSingleObject(hWriteCircularList, INFINITE);
-
-            Messages::SDCDMessage data;
-
-            writeMessage(data.getMessage().c_str());
-
-            ReleaseSemaphore(hReadDataCircularList, 1, NULL);
-            ReleaseSemaphore(hWriteMutex, 1, NULL);
+        if (WaitForSingleObject(hWroteData, INFINITE) != WAIT_OBJECT_0) {
+            printf("Wait for hWroteData failed (%d)\n", GetLastError());
+        }
+        if (!ChangeTimerQueueTimer(
+            hDataTimerQueue,
+            hDataTimer,
+            DATA_PERIOD,
+            INFINITE
+        ))
+        {
+            printf("ChangeTimerQueue failed (%d)\n", GetLastError());
+            break;
         }
     } while (nTipoEvento == 0);
+    if (!DeleteTimerQueueEx(hDataTimerQueue, NULL)) {
+        printf("DeleteTimerQueue failed (%d)\n", GetLastError());
+    }
     printf("Thread S terminando...\n");
     _endthreadex(0);
 }
@@ -391,7 +491,7 @@ int main()
 {
     int i;
     for (i = 0; i < MAX_MESSAGES; i++) {
-        strcpy(circularList[i] , "");
+        memset(circularList[i] , '\0',MESSAGE_SIZE);
     }
 
     char CRITICAL_ALARM_WRITER_INDEX = 0;
@@ -418,18 +518,24 @@ int main()
     CheckForError(hEscEvent);
 
     // The others have manual reset
-    hSEvent = CreateEvent(NULL, FALSE, TRUE, "EventoS");
+    hSEvent = CreateEvent(NULL, TRUE, TRUE, "EventoS");
     CheckForError(hSEvent);
-    hPEvent = CreateEvent(NULL, FALSE, TRUE, "EventoP");
+    hPEvent = CreateEvent(NULL, TRUE, TRUE, "EventoP");
     CheckForError(hPEvent);
-    hDEvent = CreateEvent(NULL, FALSE, TRUE, "EventoD");
+    hDEvent = CreateEvent(NULL, TRUE, TRUE, "EventoD");
     CheckForError(hDEvent);
-    hAEvent = CreateEvent(NULL, FALSE, TRUE, "EventoA");
+    hAEvent = CreateEvent(NULL, TRUE, TRUE, "EventoA");
     CheckForError(hAEvent);
-    hOEvent = CreateEvent(NULL, FALSE, TRUE, "EventoO");
+    hOEvent = CreateEvent(NULL, TRUE, TRUE, "EventoO");
     CheckForError(hOEvent);
-    hCEvent = CreateEvent(NULL, FALSE, TRUE, "EventoC");
+    hCEvent = CreateEvent(NULL, TRUE, TRUE, "EventoC");
     CheckForError(hCEvent);
+    hWroteCriticalAlarm = CreateEvent(NULL, FALSE, TRUE, NULL);
+    CheckForError(hWroteCriticalAlarm);
+    hWroteNonCriticalAlarm = CreateEvent(NULL, FALSE, TRUE, NULL);
+    CheckForError(hWroteNonCriticalAlarm);
+    hWroteData = CreateEvent(NULL, FALSE, TRUE, NULL);
+    CheckForError(hWroteData);
 
 
     ZeroMemory(&alarmStartupInfo, sizeof(alarmStartupInfo));
@@ -446,7 +552,7 @@ int main()
     createCircularListSemaphores();
 
     hThreads[CRITICAL_ALARM_WRITER_INDEX] = createThreadFromHandle(
-        (CAST_FUNCTION)writeCriticalAlarmMessage,
+        (CAST_FUNCTION)writeCriticalAlarmMessages,
         (CAST_LPDWORD)&dwIdWriteCriticalAlarm);
 
     if (hThreads[CRITICAL_ALARM_WRITER_INDEX])
@@ -456,7 +562,7 @@ int main()
         exit(0);
     }
     hThreads[NON_CRITICAL_ALARM_WRITER_INDEX] = createThreadFromHandle(
-            (CAST_FUNCTION)writeNonCriticalAlarmMessage,
+            (CAST_FUNCTION)writeNonCriticalAlarmMessages,
             (CAST_LPDWORD)&dwIdWriteNonCriticalAlarm);
 
     if (hThreads[NON_CRITICAL_ALARM_WRITER_INDEX])
@@ -466,7 +572,7 @@ int main()
         exit(0);
     }
     hThreads[DATA_WRITER_INDEX] = createThreadFromHandle(
-            (CAST_FUNCTION)writeDataMessage,
+            (CAST_FUNCTION)writePeriodicDataMessages,
             (CAST_LPDWORD)&dwIdWriteData);
 
     if (hThreads[DATA_WRITER_INDEX])
