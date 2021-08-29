@@ -100,7 +100,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="read_sdcd.cpp" />
     <ClCompile Include="tp_atr\alarm_capture.cpp" />
     <ClCompile Include="tp_atr\data_capture.cpp" />
     <ClCompile Include="tp_atr\Messages.cpp" />
