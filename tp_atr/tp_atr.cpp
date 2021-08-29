@@ -166,16 +166,11 @@ char* getSharedMemory() {
 }
 
 void writeToSharedMemory(char* data) {
-
-}
-
-void incrementFilePosition(char* position) {
-    position += sizeof(char);
+    strcpy(data, circularList[dataReadPosition]);
 }
 
 void dataMessageCapture() {
     char* dataMessage = getSharedMemory();
-    // CheckForError(dataMessage);
     if (dataMessage == NULL) {
         printf("Error on file mapping %d\n", GetLastError());
         return;
@@ -193,15 +188,15 @@ void dataMessageCapture() {
         while (isAlarmMessage(circularList[dataReadPosition][MESSAGE_TYPE_INDEX])) {
             incrementDataReadPosition();
         }
-        strcpy(dataMessage, circularList[dataReadPosition]);
+        WaitForSingleObject(hSendData, INFINITE);
+        writeToSharedMemory(dataMessage);
         strcpy(circularList[dataReadPosition],"");
         ReleaseSemaphore(hWriteCircularList, 1, NULL);
         // printf("Mensagem de DADO capturada com sucesso: --- %s\n", dataMessage);
 
-        WaitForSingleObject(hSendData, INFINITE);
-        writeToSharedMemory(dataMessage);
         if (actualPosition < CIRCULAR_DISK_MAX_MESSAGES) {
-            incrementFilePosition(dataMessage);
+            actualPosition++;
+            dataMessage += sizeof(char) * MESSAGE_SIZE;
         }
         else {
             actualPosition = 0;

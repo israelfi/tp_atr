@@ -12,7 +12,11 @@ char* dataMessage;
 
 HANDLE hSharedMemory;
 
-void getData() {
+void incrementDataMessagePosition() {
+	dataMessage += sizeof(char) * DATA_MESSAGE_SIZE;
+}
+
+void setDataMessage() {
 	dataMessage = (char*)MapViewOfFile(
 		hSharedMemory,
 		FILE_MAP_WRITE,		// Direitos de acesso: leitura e escrita
@@ -45,12 +49,16 @@ int main() {
 	int nTipoEvento;
 	bool show_once = TRUE;
 	bool exit = false;
+	int actualPosition = 0;
 
 	hSharedMemory = OpenFileMapping(
 		FILE_MAP_ALL_ACCESS,
 		FALSE,				// Handle herd�vel
 		L"Data messages Shared Memory");			// lpName
 	CheckForError(hSharedMemory);
+
+	setDataMessage();
+	
 
 	do {
 		ret = WaitForMultipleObjects(2, Events, FALSE, 1);
@@ -67,15 +75,22 @@ int main() {
 			exit = true;
 		case 1:
 			if (WaitForSingleObject(hReceiveData, 0) == WAIT_OBJECT_0) {
-				getData();
 				if (dataMessage != "") {
 					printf("Mensagem de dado ---- %s\n", dataMessage);
 				}
 				else {
 					printf("sem mensagens na fila\n");
-					;
 				}
 				ReleaseSemaphore(hSendData, 1, NULL);
+				if (actualPosition < CIRCULAR_DISK_MAX_MESSAGES) {
+					actualPosition++;
+					incrementDataMessagePosition();
+				}
+				else {
+					actualPosition = 0;
+					setDataMessage();
+				}
+
 			}
 		}
 	} while (!exit);
