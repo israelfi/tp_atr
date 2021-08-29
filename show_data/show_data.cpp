@@ -12,6 +12,17 @@ char* dataMessage;
 
 HANDLE hSharedMemory;
 
+struct subMessage {
+public:
+	int beginPosition;
+	int endPosition;
+
+	subMessage(int begin, int end) {
+		beginPosition = begin;
+		endPosition = end;
+	}
+};
+
 void incrementDataMessagePosition() {
 	dataMessage += sizeof(char) * DATA_MESSAGE_SIZE;
 }
@@ -23,6 +34,41 @@ void setDataMessage() {
 		0,					// dwOffsetHigh
 		0,					// dwOffset Low
 		DATA_MESSAGE_SIZE * CIRCULAR_DISK_MAX_MESSAGES);			// N�mero de bytes a serem mapeados
+}
+
+void printDataOnScreen() {
+	subMessage nseqPosition(0,5);
+	subMessage tagPosition(10, 17);
+	subMessage valorPosition(20, 27);
+	subMessage uePosition(29, 36);
+	subMessage modoPosition(38, 38);
+	subMessage hourPosition(40, 51);
+
+	printf("NSEQ: ");
+	for (int i = nseqPosition.beginPosition; i <= nseqPosition.endPosition; i++) {
+		printf("%c", dataMessage[i]);
+	}
+	printf(" HORA: ");
+	for (int i = hourPosition.beginPosition; i <= hourPosition.endPosition; i++) {
+		printf("%c", dataMessage[i]);
+	}
+	printf(" TAG: ");
+	for (int i = tagPosition.beginPosition; i <= tagPosition.endPosition; i++) {
+		printf("%c", dataMessage[i]);
+	}
+	printf(" VALOR: ");
+	for (int i = valorPosition.beginPosition; i <= valorPosition.endPosition; i++) {
+		printf("%c", dataMessage[i]);
+	}
+	printf(" UE: ");
+	for (int i = uePosition.beginPosition; i <= uePosition.endPosition; i++) {
+		printf("%c", dataMessage[i]);
+	}
+	printf(" MODO: ");
+	for (int i = modoPosition.beginPosition; i <= modoPosition.endPosition; i++) {
+		printf("%c", dataMessage[i]);
+	}
+	printf("\n");
 }
 
 int main() {
@@ -76,7 +122,7 @@ int main() {
 		case 1:
 			if (WaitForSingleObject(hReceiveData, 0) == WAIT_OBJECT_0) {
 				if (dataMessage != "") {
-					printf("Mensagem de dado ---- %s\n", dataMessage);
+					printDataOnScreen();
 				}
 				else {
 					printf("sem mensagens na fila\n");
@@ -90,7 +136,6 @@ int main() {
 					actualPosition = 0;
 					setDataMessage();
 				}
-
 			}
 		}
 	} while (!exit);
