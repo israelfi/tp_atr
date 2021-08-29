@@ -4,6 +4,9 @@
 #include <stdio.h>
 #include <chrono>
 #include <cstdlib>
+#include <sstream>
+#include <iomanip>
+
 #include "Messages.h"
 #pragma warning(disable : 4996) //_CRT_SECURE_NO_WARNINGS
 
@@ -36,22 +39,22 @@ const string BaseMessage::currentTime(bool MILISECOND)
 	Returns current time in format HH:MM:SS.MSS or HH:MM:SS
 	*/
 
-	auto currentTime = system_clock::now();
-	char buffer[80];
+	using namespace std::chrono;
 
-	auto transformed = currentTime.time_since_epoch().count() / 1000000;
+	auto now = system_clock::now();
+	auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+	auto timer = system_clock::to_time_t(now);
 
-	auto millis = transformed % 1000;
+	std::tm bt = *std::localtime(&timer);
+	std::ostringstream oss;
 
-	std::time_t tt;
-	tt = system_clock::to_time_t(currentTime);
-	auto timeinfo = localtime(&tt);
-	strftime(buffer, 80, "%H:%M:%S", timeinfo);
+	oss << std::put_time(&bt, "%H:%M:%S");
+	std::cout << oss.str() << std::endl;
 	if (MILISECOND) {
-		sprintf(buffer, "%s.%03d", buffer, (int)millis);
+		oss << '.' << std::setfill('0') << std::setw(3) << ms.count();
 	}
 
-	return string(buffer);
+	return oss.str();
 }
 
 int BaseMessage::get_rand_int(int low, int high)
