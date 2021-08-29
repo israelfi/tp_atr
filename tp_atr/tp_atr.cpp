@@ -26,6 +26,7 @@
 #define MIN_CRIT_ALARM_PERIOD 3000
 #define MAX_CRIT_ALARM_PERIOD 8000
 #define DATA_PERIOD 500
+#define CIRCULAR_DISK_MAX_MESSAGES 200
 #define ALARM_MESSAGE_SIZE 31
 
 typedef unsigned (WINAPI* CAST_FUNCTION)(LPVOID);	//Casting para terceiro e sexto par�metros da fun��o
@@ -50,6 +51,14 @@ HANDLE hReadDataCircularList;
 HANDLE hReadAlarmCircularList;
 HANDLE hWriteCircularList;
 HANDLE hWriteMutex;
+HANDLE hWroteCriticalAlarm;
+HANDLE hWroteNonCriticalAlarm;
+HANDLE hWroteData;
+
+// Handles regarding shared memory
+HANDLE hSendData;
+HANDLE hReceiveData;
+HANDLE hSharedMemory;
 
 // Events regarding the keyboard input
 HANDLE hEscEvent;
@@ -59,9 +68,6 @@ HANDLE hDEvent;
 HANDLE hAEvent;
 HANDLE hOEvent;
 HANDLE hCEvent;
-HANDLE hWroteCriticalAlarm;
-HANDLE hWroteNonCriticalAlarm;
-HANDLE hWroteData;
 
 // Handles regarding mailslot
 HANDLE hMailslot;
@@ -150,11 +156,34 @@ void alarmMessageCapture() {
     
 }
 
+char* getSharedMemory() {
+    return (char*)MapViewOfFile(
+        hSharedMemory,
+        FILE_MAP_ALL_ACCESS,		// Direitos de acesso: leitura e escrita
+        0,					// dwOffsetHigh
+        0,					// dwOffset Low
+        MESSAGE_SIZE*CIRCULAR_DISK_MAX_MESSAGES);			// N�mero de bytes a serem mapeados
+}
+
+void writeToSharedMemory(char* data) {
+
+}
+
+void incrementFilePosition(char* position) {
+    position += sizeof(char);
+}
+
 void dataMessageCapture() {
-    char dataMessage[MESSAGE_SIZE];
+    char* dataMessage = getSharedMemory();
+    // CheckForError(dataMessage);
+    if (dataMessage == NULL) {
+        printf("Error on file mapping %d\n", GetLastError());
+        return;
+    }
     HANDLE Events[2] = { hDEvent, hEscEvent };
     DWORD ret;
     int nTipoEvento;
+    int actualPosition = 0;
 
     do {
         ret = WaitForMultipleObjects(2, Events, FALSE, INFINITE);
@@ -167,6 +196,18 @@ void dataMessageCapture() {
         strcpy(dataMessage, circularList[dataReadPosition]);
         strcpy(circularList[dataReadPosition],"");
         ReleaseSemaphore(hWriteCircularList, 1, NULL);
+        // printf("Mensagem de DADO capturada com sucesso: --- %s\n", dataMessage);
+
+        WaitForSingleObject(hSendData, INFINITE);
+        writeToSharedMemory(dataMessage);
+        if (actualPosition < CIRCULAR_DISK_MAX_MESSAGES) {
+            incrementFilePosition(dataMessage);
+        }
+        else {
+            actualPosition = 0;
+            dataMessage = getSharedMemory();
+        }
+        ReleaseSemaphore(hReceiveData, 1, NULL);
         // printf("Mensagem de DADO capturada com sucesso: --- %s\n", dataMessage);
         incrementDataReadPosition();
     } while (nTipoEvento == 0);
@@ -493,8 +534,16 @@ void createCircularListSemaphores(){
     CheckForError(hWriteMutex);
 }
 
+void createSharedMemorySemaphores() {
+    hSendData = CreateSemaphore(NULL, CIRCULAR_DISK_MAX_MESSAGES, CIRCULAR_DISK_MAX_MESSAGES, "Data sent to shared memory");
+    CheckForError(hSendData);
+    hReceiveData = CreateSemaphore(NULL, 0, CIRCULAR_DISK_MAX_MESSAGES, "Data received from shared memory");
+    CheckForError(hReceiveData);
+}
+
 void closeSemaphoresHandles() {
     CloseHandle(hReadDataCircularList);
+    CloseHandle(hReadAlarmCircularList);
     CloseHandle(hWriteCircularList);
     CloseHandle(hWriteMutex);
 }
@@ -509,6 +558,33 @@ HANDLE createThreadFromHandle(_beginthreadex_proc_type castedFunction, unsigned 
             0,
             threadAddr);
     return hThread;
+}
+
+void createSharedMemory() {
+    HANDLE file = CreateFile(
+        "..\\DataLogger.txt",
+        GENERIC_WRITE | GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE,
+        (LPSECURITY_ATTRIBUTES)NULL,
+        CREATE_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL,
+        (HANDLE)NULL);
+
+    if (file == INVALID_HANDLE_VALUE)
+    {
+        printf("Error. Codigo %d. \n", GetLastError());
+    }
+    hSharedMemory = CreateFileMapping(
+        file,
+        NULL,
+        PAGE_READWRITE,		// tipo de acesso
+        0,					// dwMaximumSizeHigh
+        (DWORD) MESSAGE_SIZE*CIRCULAR_DISK_MAX_MESSAGES,					// dwMaximumSizeLow
+        "Data messages Shared Memory");			// lpName
+    if (hSharedMemory == NULL) {
+        printf("Error on hSharedMemory - %d\n", GetLastError());
+    }
+    CheckForError(hSharedMemory);
 }
 
 int main()
@@ -575,6 +651,9 @@ int main()
     dataStartupInfo.cb = sizeof(dataStartupInfo);
     ZeroMemory(&dataProcessInfo, sizeof(dataProcessInfo));
 
+    createSharedMemorySemaphores();
+    createSharedMemory();
+
     crateProcessOnNewWindow(&alarmStartupInfo, &alarmProcessInfo, "./x64/Debug/show_alarm.exe");
     crateProcessOnNewWindow(&dataStartupInfo, &dataProcessInfo, "./x64/Debug/show_data.exe");
 
@@ -609,9 +688,9 @@ int main()
             (CAST_LPDWORD)&dwIdWriteNonCriticalAlarm);
 
     if (hThreads[NON_CRITICAL_ALARM_WRITER_INDEX])
-        printf("Thread Alarme não crítico criada com sucesso! Id=%0x\n", dwIdWriteNonCriticalAlarm);
+        printf("Thread Alarme nao critico criada com sucesso! Id=%0x\n", dwIdWriteNonCriticalAlarm);
     else {
-        printf("Erro na criacao da thread Alarme não crítico! N = %d Erro = %d\n", NON_CRITICAL_ALARM_WRITER_INDEX, errno);
+        printf("Erro na criacao da thread Alarme nao critico! N = %d Erro = %d\n", NON_CRITICAL_ALARM_WRITER_INDEX, errno);
         exit(0);
     }
     hThreads[DATA_WRITER_INDEX] = createThreadFromHandle(

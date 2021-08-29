@@ -24,9 +24,6 @@
     <ClCompile Include="tp_atr\Messages.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="tp_atr\read_pims.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="tp_atr\tp_atr.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
