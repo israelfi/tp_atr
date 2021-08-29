@@ -49,7 +49,6 @@ const string BaseMessage::currentTime(bool MILISECOND)
 	std::ostringstream oss;
 
 	oss << std::put_time(&bt, "%H:%M:%S");
-	std::cout << oss.str() << std::endl;
 	if (MILISECOND) {
 		oss << '.' << std::setfill('0') << std::setw(3) << ms.count();
 	}

@@ -133,7 +133,6 @@ void alarmMessageCapture() {
     int nTipoEvento;
 
     do {
-        Sleep(250);
         ret = WaitForMultipleObjects(2, Events, FALSE, INFINITE);
         nTipoEvento = ret - WAIT_OBJECT_0;
         if (nTipoEvento == 0) {

@@ -104,5 +104,10 @@ int main() {
 	}
 	
 	printf("Thread C terminando...\n");
+	CloseHandle(hCEvent);
+	CloseHandle(hEscEvent);
+	CloseHandle(hMailslot);
+	CloseHandle(hEventMailslot);
+	CloseHandle(Events);
 	return 0;
 }
