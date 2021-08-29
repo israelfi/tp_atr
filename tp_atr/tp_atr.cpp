@@ -159,7 +159,7 @@ void alarmMessageCapture() {
 char* getSharedMemory() {
     return (char*)MapViewOfFile(
         hSharedMemory,
-        FILE_MAP_WRITE,		// Direitos de acesso: leitura e escrita
+        FILE_MAP_ALL_ACCESS,		// Direitos de acesso: leitura e escrita
         0,					// dwOffsetHigh
         0,					// dwOffset Low
         MESSAGE_SIZE*CIRCULAR_DISK_MAX_MESSAGES);			// N�mero de bytes a serem mapeados
@@ -175,7 +175,11 @@ void incrementFilePosition(char* position) {
 
 void dataMessageCapture() {
     char* dataMessage = getSharedMemory();
-    CheckForError(dataMessage);
+    // CheckForError(dataMessage);
+    if (dataMessage == NULL) {
+        printf("Error on file mapping %d\n", GetLastError());
+        return;
+    }
     HANDLE Events[2] = { hDEvent, hEscEvent };
     DWORD ret;
     int nTipoEvento;
@@ -557,13 +561,29 @@ HANDLE createThreadFromHandle(_beginthreadex_proc_type castedFunction, unsigned 
 }
 
 void createSharedMemory() {
+    HANDLE file = CreateFile(
+        "..\\DataLogger.txt",
+        GENERIC_WRITE | GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE,
+        (LPSECURITY_ATTRIBUTES)NULL,
+        CREATE_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL,
+        (HANDLE)NULL);
+
+    if (file == INVALID_HANDLE_VALUE)
+    {
+        printf("Error. Codigo %d. \n", GetLastError());
+    }
     hSharedMemory = CreateFileMapping(
-        (HANDLE)0xFFFFFFFF,
+        file,
         NULL,
         PAGE_READWRITE,		// tipo de acesso
         0,					// dwMaximumSizeHigh
-        MESSAGE_SIZE*CIRCULAR_DISK_MAX_MESSAGES,					// dwMaximumSizeLow
+        (DWORD) MESSAGE_SIZE*CIRCULAR_DISK_MAX_MESSAGES,					// dwMaximumSizeLow
         "Data messages Shared Memory");			// lpName
+    if (hSharedMemory == NULL) {
+        printf("Error on hSharedMemory - %d\n", GetLastError());
+    }
     CheckForError(hSharedMemory);
 }
 
@@ -668,9 +688,9 @@ int main()
             (CAST_LPDWORD)&dwIdWriteNonCriticalAlarm);
 
     if (hThreads[NON_CRITICAL_ALARM_WRITER_INDEX])
-        printf("Thread Alarme não crítico criada com sucesso! Id=%0x\n", dwIdWriteNonCriticalAlarm);
+        printf("Thread Alarme nao critico criada com sucesso! Id=%0x\n", dwIdWriteNonCriticalAlarm);
     else {
-        printf("Erro na criacao da thread Alarme não crítico! N = %d Erro = %d\n", NON_CRITICAL_ALARM_WRITER_INDEX, errno);
+        printf("Erro na criacao da thread Alarme nao critico! N = %d Erro = %d\n", NON_CRITICAL_ALARM_WRITER_INDEX, errno);
         exit(0);
     }
     hThreads[DATA_WRITER_INDEX] = createThreadFromHandle(

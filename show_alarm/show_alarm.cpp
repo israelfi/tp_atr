@@ -58,7 +58,6 @@ int main() {
 
 	if (hMailslot != INVALID_HANDLE_VALUE) {
 		do {
-			Sleep(1000);
 			ret = WaitForMultipleObjects(2, Events, FALSE, 0);
 			nTipoEvento = ret - WAIT_OBJECT_0;
 			retEsc = WaitForSingleObject(hEscEvent, 0);
