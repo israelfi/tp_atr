@@ -15,9 +15,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="read_sdcd.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="tp_atr\alarm_capture.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

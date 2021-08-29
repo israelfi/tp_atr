@@ -141,6 +141,9 @@
   <ItemGroup>
     <ClCompile Include="show_alarm.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="CheckForError.h" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

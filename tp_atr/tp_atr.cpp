@@ -26,6 +26,7 @@
 #define MIN_CRIT_ALARM_PERIOD 3000
 #define MAX_CRIT_ALARM_PERIOD 8000
 #define DATA_PERIOD 500
+#define ALARM_MESSAGE_SIZE 31
 
 typedef unsigned (WINAPI* CAST_FUNCTION)(LPVOID);	//Casting para terceiro e sexto par�metros da fun��o
                                                     //_beginthreadex
@@ -62,6 +63,10 @@ HANDLE hWroteCriticalAlarm;
 HANDLE hWroteNonCriticalAlarm;
 HANDLE hWroteData;
 
+// Handles regarding mailslot
+HANDLE hMailslot;
+HANDLE hEventMailslot;
+
 DWORD dwRet;
 
 char circularList[MAX_MESSAGES][MESSAGE_SIZE];
@@ -71,16 +76,17 @@ int writePosition = 0;
 int nTecla;
 
 int crateProcessOnNewWindow(STARTUPINFO* startupInfo, PROCESS_INFORMATION* processInfo,LPCSTR filePath) {
-    if (!CreateProcess(filePath,   // No module name (use command line)
-        NULL,        // Command line
-        NULL,           // Process handle not inheritable
-        NULL,           // Thread handle not inheritable
-        TRUE,          // Set handle inheritance to FALSE
-        CREATE_NEW_CONSOLE,              // No creation flags
-        NULL,           // Use parent's environment block
-        "./x64/Debug",           // Use parent's starting directory 
-        startupInfo,            // Pointer to STARTUPINFO structure
-        processInfo)           // Pointer to PROCESS_INFORMATION structure
+    if (!CreateProcess(
+        filePath,           // No module name (use command line)
+        NULL,               // Command line
+        NULL,               // Process handle not inheritable
+        NULL,               // Thread handle not inheritable
+        TRUE,               // Set handle inheritance
+        CREATE_NEW_CONSOLE, // No creation flags
+        NULL,               // Use parent's environment block
+        "./x64/Debug",      // Use parent's starting directory 
+        startupInfo,        // Pointer to STARTUPINFO structure
+        processInfo)        // Pointer to PROCESS_INFORMATION structure
         )
     {
         printf("CreateProcess failed (%d).\n", GetLastError());
@@ -115,7 +121,10 @@ void alarmMessageCapture() {
     char alarmMessage[MESSAGE_SIZE];
     HANDLE Events[2] = { hAEvent, hEscEvent };
     DWORD ret;
+    DWORD dwBytesEnviados;
     int nTipoEvento;
+    char* teste;
+    teste = "b";
 
     do {
         Sleep(250);
@@ -130,6 +139,9 @@ void alarmMessageCapture() {
             strcpy(alarmMessage, circularList[alarmReadPosition]);
             strcpy(circularList[alarmReadPosition],"");
             ReleaseSemaphore(hWriteCircularList, 1, NULL);
+
+            // Sending message via mailslot
+            WriteFile(hMailslot, alarmMessage, sizeof(char)*ALARM_MESSAGE_SIZE, &dwBytesEnviados, NULL);
             printf("Mensagem de ALARME capturada com sucesso: - %s\n", alarmMessage);
             incrementAlarmReadPosition();
         }
@@ -155,7 +167,7 @@ void dataMessageCapture() {
         strcpy(dataMessage, circularList[dataReadPosition]);
         strcpy(circularList[dataReadPosition],"");
         ReleaseSemaphore(hWriteCircularList, 1, NULL);
-        printf("Mensagem de DADO capturada com sucesso: --- %s\n", dataMessage);
+        // printf("Mensagem de DADO capturada com sucesso: --- %s\n", dataMessage);
         incrementDataReadPosition();
     } while (nTipoEvento == 0);
     printf("Thread D terminando...\n");
@@ -500,6 +512,8 @@ int main()
     char ALARM_CAPTURE_INDEX = 3;
     char DATA_CAPTURE_INDEX = 4;
 
+    BOOL maislotStatus;
+
     STARTUPINFO alarmStartupInfo;
     STARTUPINFO dataStartupInfo;
     PROCESS_INFORMATION alarmProcessInfo;
@@ -537,6 +551,9 @@ int main()
     hWroteData = CreateEvent(NULL, FALSE, TRUE, NULL);
     CheckForError(hWroteData);
 
+    // Creating event used in mailslot
+    hEventMailslot = CreateEvent(NULL, TRUE, FALSE, "EventoMailslot");
+
 
     ZeroMemory(&alarmStartupInfo, sizeof(alarmStartupInfo));
     alarmStartupInfo.cb = sizeof(alarmStartupInfo);
@@ -548,6 +565,20 @@ int main()
 
     crateProcessOnNewWindow(&alarmStartupInfo, &alarmProcessInfo, "./x64/Debug/show_alarm.exe");
     crateProcessOnNewWindow(&dataStartupInfo, &dataProcessInfo, "./x64/Debug/show_data.exe");
+
+    // Waiting synchronism between show_alarm and mailslot
+    WaitForSingleObject(hEventMailslot, INFINITE);
+
+    hMailslot = CreateFile(
+        "\\\\.\\mailslot\\MyMailslot",
+        GENERIC_WRITE,
+        FILE_SHARE_READ,
+        NULL,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL);
+    CheckForError(hMailslot != INVALID_HANDLE_VALUE);
+    printf("Mail slot criado\n");
 
     createCircularListSemaphores();
 
@@ -608,6 +639,10 @@ int main()
     // Wait until child process exits.
     WaitForSingleObject(alarmProcessInfo.hProcess, INFINITE);
     WaitForSingleObject(dataProcessInfo.hProcess, INFINITE);
+
+    // Closing mailslot handles
+    CloseHandle(hMailslot);
+    CloseHandle(hEventMailslot);
 
     // Close process and thread handles. 
     CloseHandle(alarmProcessInfo.hProcess);
