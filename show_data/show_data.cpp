@@ -107,7 +107,7 @@ int main() {
 	
 
 	do {
-		ret = WaitForMultipleObjects(2, Events, FALSE, 1);
+		ret = WaitForMultipleObjects(2, Events, FALSE, 0);
 		if (ret == WAIT_TIMEOUT) {
 			nTipoEvento = -1;
 		}
@@ -119,6 +119,7 @@ int main() {
 		{
 		case 0:
 			exit = true;
+			break;
 		case 1:
 			if (WaitForSingleObject(hReceiveData, 0) == WAIT_OBJECT_0) {
 				if (dataMessage != "") {
@@ -137,6 +138,12 @@ int main() {
 					setDataMessage();
 				}
 			}
+			break;
+		case -1:
+			printf("---- Tarefa de exibicao de dados bloqueada! ----\n\n");
+			WaitForMultipleObjects(2, Events, FALSE, INFINITE);
+			printf("---- Tarefa de exibicao de dados desbloqueada! ----\n\n");
+			break;
 		}
 	} while (!exit);
 
