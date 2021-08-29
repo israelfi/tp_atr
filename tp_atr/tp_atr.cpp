@@ -196,7 +196,7 @@ void dataMessageCapture() {
         strcpy(dataMessage, circularList[dataReadPosition]);
         strcpy(circularList[dataReadPosition],"");
         ReleaseSemaphore(hWriteCircularList, 1, NULL);
-        printf("Mensagem de DADO capturada com sucesso: --- %s\n", dataMessage);
+        // printf("Mensagem de DADO capturada com sucesso: --- %s\n", dataMessage);
 
         WaitForSingleObject(hSendData, INFINITE);
         writeToSharedMemory(dataMessage);
