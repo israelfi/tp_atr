@@ -96,5 +96,9 @@ int main() {
 	} while (!exit);
 
 	printf("Thread O terminando...\n");
+	CloseHandle(hOEvent);
+	CloseHandle(hEscEvent);
+	CloseHandle(hSendData);
+	CloseHandle(hReceiveData);
 	return 0;
 }
