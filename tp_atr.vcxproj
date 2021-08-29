@@ -103,7 +103,6 @@
     <ClCompile Include="tp_atr\alarm_capture.cpp" />
     <ClCompile Include="tp_atr\data_capture.cpp" />
     <ClCompile Include="tp_atr\Messages.cpp" />
-    <ClCompile Include="tp_atr\read_pims.cpp" />
     <ClCompile Include="tp_atr\tp_atr.cpp" />
   </ItemGroup>
   <ItemGroup>
