@@ -237,22 +237,21 @@ void CALLBACK writeAlarmMessage(int &alarmType, BOOLEAN TimerOrWaitFired) {
     DWORD dwBytesEnviados;
     char criticalAlarmMessage[MESSAGE_SIZE];
 
-    WaitForSingleObject(hWriteMutex, INFINITE);
-    WaitForSingleObject(hWriteCircularList, INFINITE);
-
     Messages::PIMSMessage alarm(alarmType);
 
     if (alarmType==2) {
         // Non-critical alarms
+        WaitForSingleObject(hWriteMutex, INFINITE);
+        WaitForSingleObject(hWriteCircularList, INFINITE);
         writeMessage(alarm.getMessage().c_str());
+        ReleaseSemaphore(hReadAlarmCircularList, 1, NULL);
+        ReleaseSemaphore(hWriteMutex, 1, NULL);
     }
     else {
         // Critical alarms - sends directly via mailslot
         WriteFile(hMailslot, alarm.getMessage().c_str(), sizeof(char) * ALARM_MESSAGE_SIZE, &dwBytesEnviados, NULL);
     }
 
-    ReleaseSemaphore(hReadAlarmCircularList, 1, NULL);
-    ReleaseSemaphore(hWriteMutex, 1, NULL);
     if (alarmType == CRITICAL_ALARM_TYPE) {
         SetEvent(hWroteCriticalAlarm);
     }
