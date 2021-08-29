@@ -118,13 +118,13 @@ void incrementDataReadPosition() {
 }
 
 void alarmMessageCapture() {
+    // Tarefa de captura de alarmes - nao criticos
+
     char alarmMessage[MESSAGE_SIZE];
     HANDLE Events[2] = { hAEvent, hEscEvent };
     DWORD ret;
     DWORD dwBytesEnviados;
     int nTipoEvento;
-    char* teste;
-    teste = "b";
 
     do {
         Sleep(250);
@@ -142,7 +142,7 @@ void alarmMessageCapture() {
 
             // Sending message via mailslot
             WriteFile(hMailslot, alarmMessage, sizeof(char)*ALARM_MESSAGE_SIZE, &dwBytesEnviados, NULL);
-            printf("Mensagem de ALARME capturada com sucesso: - %s\n", alarmMessage);
+            //printf("Mensagem de ALARME capturada com sucesso: - %s\n", alarmMessage);
             incrementAlarmReadPosition();
         }
     } while (nTipoEvento == 0);
@@ -183,6 +183,7 @@ bool isPositionEmpty(int position) {
 }
 
 void writeMessage(const char* message) {
+    // Writes messages in memomory circular list
     int startingPosition = writePosition;
     while (!isPositionEmpty(writePosition)) {
         incrementWritePosition();
@@ -196,13 +197,22 @@ void writeMessage(const char* message) {
 }
 
 void CALLBACK writeAlarmMessage(int &alarmType, BOOLEAN TimerOrWaitFired) {
+    DWORD dwBytesEnviados;
+    char criticalAlarmMessage[MESSAGE_SIZE];
 
     WaitForSingleObject(hWriteMutex, INFINITE);
     WaitForSingleObject(hWriteCircularList, INFINITE);
 
     Messages::PIMSMessage alarm(alarmType);
 
-    writeMessage(alarm.getMessage().c_str());
+    if (alarmType==2) {
+        // Non-critical alarms
+        writeMessage(alarm.getMessage().c_str());
+    }
+    else {
+        // Critical alarms - sends directly via mailslot
+        WriteFile(hMailslot, alarm.getMessage().c_str(), sizeof(char) * ALARM_MESSAGE_SIZE, &dwBytesEnviados, NULL);
+    }
 
     ReleaseSemaphore(hReadAlarmCircularList, 1, NULL);
     ReleaseSemaphore(hWriteMutex, 1, NULL);
@@ -212,6 +222,9 @@ void CALLBACK writeAlarmMessage(int &alarmType, BOOLEAN TimerOrWaitFired) {
     else {
         SetEvent(hWroteNonCriticalAlarm);
     }
+}
+
+void criticalAlarmSender() {
 }
 
 void CALLBACK writeDataMessage(BOOLEAN isBlocked, BOOLEAN TimerOrWaitFired) {
